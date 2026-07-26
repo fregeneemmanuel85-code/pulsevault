@@ -651,7 +651,7 @@ function extractPluginAssets(html: string, baseUrl: string): string[] {
       assets.push(resolved);
     } catch {}
   }
-  return [...new Set(assets)];
+  return Array.from(new Set(assets));
 }
 
 async function checkPluginAssets(
