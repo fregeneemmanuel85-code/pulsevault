@@ -1,0 +1,273 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CORE ANIMATIONS
+   ============================================ */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.4;
+  }
+  33% {
+    transform: translateY(-18px) translateX(8px);
+    opacity: 0.8;
+  }
+  66% {
+    transform: translateY(-8px) translateX(-6px);
+    opacity: 0.5;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+/* ============================================
+   CSS VARIABLES — LIGHT/DARK MODE
+   ============================================ */
+
+:root {
+  --bg-body: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-badge-green: #f0fdf4;
+  --bg-badge-yellow: #fffbeb;
+  --bg-badge-red: #fef2f2;
+  --bg-badge-blue: #eff6ff;
+  --bg-icon: #f8fafc;
+  --bg-toggle-off: #e2e8f0;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-green: #15803d;
+  --text-yellow: #b45309;
+  --text-red: #b91c1c;
+  --text-blue: #2563eb;
+
+  --border-color: #e2e8f0;
+  --border-light: #f1f5f9;
+}
+
+.dark {
+  --bg-body: #0f172a;
+  --bg-card: #1e293b;
+  --bg-input: #1e293b;
+  --bg-badge-green: #14532d;
+  --bg-badge-yellow: #713f12;
+  --bg-badge-red: #7f1d1d;
+  --bg-badge-blue: #1e3a5f;
+  --bg-icon: #0f172a;
+  --bg-toggle-off: #334155;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #94a3b8;
+  --text-green: #4ade80;
+  --text-yellow: #fbbf24;
+  --text-red: #f87171;
+  --text-blue: #60a5fa;
+
+  --border-color: #334155;
+  --border-light: #334155;
+}
+
+/* ============================================
+   DARK MODE AUTO-CONVERSION OVERRIDES
+   ============================================ */
+
+.dark [style*="background-color: white"],
+.dark [style*="backgroundColor: white"],
+.dark [style*="background-color: rgb(255, 255, 255)"],
+.dark [style*="backgroundColor: rgb(255, 255, 255)"] {
+  background-color: var(--bg-card) !important;
+}
+
+.dark [style*="color: rgb(15, 23, 42)"],
+.dark [style*="color: #0f172a"] {
+  color: var(--text-primary) !important;
+}
+
+.dark [style*="color: rgb(71, 85, 105)"],
+.dark [style*="color: #475569"] {
+  color: var(--text-secondary) !important;
+}
+
+.dark [style*="color: rgb(100, 116, 139)"],
+.dark [style*="color: #64748b"] {
+  color: var(--text-muted) !important;
+}
+
+.dark [style*="border: 1px solid rgb(226, 232, 240)"],
+.dark [style*="border: 1px solid #e2e8f0"] {
+  border-color: var(--border-color) !important;
+}
+
+.dark [style*="border: 1px solid rgb(241, 245, 249)"],
+.dark [style*="border: 1px solid #f1f5f9"] {
+  border-color: var(--border-light) !important;
+}
+
+.dark input,
+.dark select {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+body {
+  background-color: var(--bg-body);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   AUTH PAGES — LOGIN / REGISTER
+   ============================================ */
+
+.login-left-side,
+.register-left-side {
+  display: none !important;
+}
+
+.login-right-side,
+.register-right-side {
+  border-left: none !important;
+}
+
+@media (min-width: 768px) {
+  .login-left-side,
+  .register-left-side {
+    display: flex !important;
+  }
+
+  .login-right-side,
+  .register-right-side {
+    width: 440px !important;
+    min-width: 440px !important;
+    flex: 0 0 auto !important;
+    border-left: 1px solid rgba(51, 65, 85, 0.4) !important;
+  }
+}
+
+/* ============================================
+   DASHBOARD LAYOUT
+   ============================================ */
+
+@media (min-width: 768px) {
+  .dashboard-main {
+    margin-left: 16rem !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard-main {
+    margin-left: 0 !important;
+    padding: 0.75rem !important;
+  }
+}
+
+/* ============================================
+   DASHBOARD PAGE HELPERS
+   ============================================ */
+
+@media (min-width: 640px) {
+  .ssl-label,
+  .last-checked-label {
+    display: inline !important;
+  }
+}
+
+/* ============================================
+   WEBSITES PAGE HELPERS
+   ============================================ */
+
+@media (max-width: 640px) {
+  .website-stats-row {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* ============================================
+   RESPONSIVE UTILITY CLASSES
+   ============================================ */
+
+.hide-mobile {
+  display: none !important;
+}
+
+@media (min-width: 640px) {
+  .hide-mobile {
+    display: initial !important;
+  }
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: rgba(37, 99, 235, 0.2);
+  color: inherit;
+}
