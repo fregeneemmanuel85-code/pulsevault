@@ -2,13 +2,11 @@ import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [
-      {
-        userAgent: "*",
-        allow: "/",
-        disallow: ["/dashboard", "/api", "/_next", "/404"],
-      },
-    ],
+    rules: {
+      userAgent: "*",
+      allow: "/",
+      disallow: ["/api/", "/dashboard/"],
+    },
     sitemap: "https://pulsevault.website/sitemap.xml",
   };
 }
