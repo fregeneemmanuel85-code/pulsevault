@@ -2,16 +2,40 @@ import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-const serviceAccount = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-};
+let app;
 
-const app =
-  getApps().length === 0
-    ? initializeApp({ credential: cert(serviceAccount as any) })
-    : getApps()[0];
+try {
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY
+    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+    : undefined;
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+  if (
+    !privateKey ||
+    !process.env.FIREBASE_PROJECT_ID ||
+    !process.env.FIREBASE_CLIENT_EMAIL
+  ) {
+    throw new Error(
+      `Missing Firebase Admin credentials. ` +
+        `PROJECT_ID=${!!process.env.FIREBASE_PROJECT_ID}, ` +
+        `CLIENT_EMAIL=${!!process.env.FIREBASE_CLIENT_EMAIL}, ` +
+        `PRIVATE_KEY=${!!privateKey}`,
+    );
+  }
+
+  app =
+    getApps().length === 0
+      ? initializeApp({
+          credential: cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            privateKey,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          }),
+        })
+      : getApps()[0];
+} catch (err: any) {
+  console.error("[Firebase Admin] Init failed:", err.message);
+  app = null;
+}
+
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
