@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Timestamp } from "firebase-admin/firestore";
-import { db } from "@/lib/firebase-admin";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import "@/lib/firebase-admin";
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -8,19 +8,13 @@ function generateOTP(): string {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!db) {
-      return NextResponse.json(
-        { error: "Database not available" },
-        { status: 500 },
-      );
-    }
-
     const { email, type } = await req.json();
     if (!email || !type || !["signup", "login"].includes(type)) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    const db = getFirestore();
     const otpRef = db.collection("otpCodes").doc(normalizedEmail);
     const existing = await otpRef.get();
 

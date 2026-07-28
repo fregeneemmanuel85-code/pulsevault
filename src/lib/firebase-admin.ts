@@ -34,8 +34,8 @@ try {
       : getApps()[0];
 } catch (err: any) {
   console.error("[Firebase Admin] Init failed:", err.message);
-  app = null;
+  throw new Error(`Firebase Admin initialization failed: ${err.message}`);
 }
 
-export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
+export const auth = getAuth(app);
+export const db = getFirestore(app);
