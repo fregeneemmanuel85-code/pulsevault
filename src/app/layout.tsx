@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     siteName: "PulseVault",
     images: [
       {
-        url: "https://pulsevault.website/og-image.png",
+        url: "https://pulsevault.website/opengraph-image.png",
         width: 1200,
         height: 630,
         alt: "PulseVault Dashboard Preview",
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     title: "PulseVault — Website Monitoring",
     description:
       "Monitor uptime, SSL, broken links, and performance. Get instant alerts.",
-    images: ["https://pulsevault.website/og-image.png"],
+    images: ["https://pulsevault.website/opengraph-image.png"],
     creator: "@pulsevault",
   },
   robots: {
@@ -68,11 +68,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "your-google-verification-code", // ← Replace with your actual code from Search Console
-  },
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    google: "your-google-verification-code",
   },
 };
 
