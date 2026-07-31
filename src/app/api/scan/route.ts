@@ -19,7 +19,7 @@ function getSecret() {
 interface ScanResult {
   url: string;
   timestamp: string;
-  status: "healthy" | "warning" | "critical" | "offline";
+  status: "healthy" | "warning" | "critical" | "offline" | "soft-404";
   healthScore: number;
   httpStatus: number;
   responseTime: number;
@@ -49,12 +49,47 @@ interface ScanResult {
     csp: boolean;
   };
   redirectChain: string[];
+  isSoft404: boolean;
 }
 
 const MAX_LINKS_TO_CHECK = 30;
 const LINK_TIMEOUT_MS = 3000;
 const IMAGE_TIMEOUT_MS = 3000;
 const MAX_SCAN_TIME_MS = 25000;
+
+// Soft 404 indicators
+const SOFT_404_PATTERNS = [
+  /not\s+found/i,
+  /page\s+not\s+found/i,
+  /404\s+error/i,
+  /404\s+page/i,
+  /could\s+not\s+find/i,
+  /doesn'?t\s+exist/i,
+  /no\s+such/i,
+  /nothing\s+here/i,
+  /oops/i,
+  /missing/i,
+];
+
+function isSoft404(html: string, status: number): boolean {
+  if (status !== 200) return false;
+  const text = html.slice(0, 5000).toLowerCase();
+  const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+  const title = titleMatch ? titleMatch[1].toLowerCase() : "";
+  const h1Match = html.match(/<h1[^>]*>(.*?)<\/h1>/i);
+  const h1 = h1Match ? h1Match[1].toLowerCase() : "";
+  const combined = `${title} ${h1} ${text}`;
+  return SOFT_404_PATTERNS.some((p) => p.test(combined));
+}
+
+function isValidPluginName(name: string): boolean {
+  if (!name || name.length < 3 || name.length > 80) return false;
+  if (/["'*{},\[\]<>\\|]/.test(name)) return false;
+  if (/^(https?|data|ftp):/i.test(name)) return false;
+  if (/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$/i.test(name))
+    return false;
+  return /^[a-zA-Z0-9\-_]+$/.test(name);
+}
 
 export async function POST(req: NextRequest) {
   const scanStartTime = Date.now();
@@ -80,7 +115,26 @@ export async function POST(req: NextRequest) {
       `[Scan] Raw request: url=${url}, websiteId=${websiteId || "NOT_PROVIDED"}`,
     );
 
-    // --- FETCH USER PLAN (for feature enforcement) ---
+    if (!url || typeof url !== "string") {
+      return NextResponse.json({ error: "URL required" }, { status: 400 });
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return NextResponse.json(
+          { error: "Only HTTP and HTTPS URLs are allowed" },
+          { status: 400 },
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid URL format" },
+        { status: 400 },
+      );
+    }
+
     const db = getFirestore();
     const planSnap = await db
       .collection("users")
@@ -115,10 +169,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!url) {
-      return NextResponse.json({ error: "URL required" }, { status: 400 });
-    }
-
     const result: ScanResult = {
       url,
       timestamp: new Date().toISOString(),
@@ -143,21 +193,20 @@ export async function POST(req: NextRequest) {
         csp: false,
       },
       redirectChain: [],
+      isSoft404: false,
     };
 
     // --- SSL CHECK ---
     try {
-      const hostname = new URL(url).hostname;
+      const hostname = parsedUrl.hostname;
       const sslCert = await checkSSLCertificate(hostname);
-
       result.ssl = {
         valid: sslCert.valid && sslCert.daysLeft >= 0,
         expiry: sslCert.expiryDate,
         daysLeft: sslCert.daysLeft,
       };
-
       console.log(
-        `[Scan] SSL pre-check for ${hostname}: valid=${result.ssl.valid}, daysLeft=${result.ssl.daysLeft}, expiry=${result.ssl.expiry}`,
+        `[Scan] SSL pre-check for ${hostname}: valid=${result.ssl.valid}, daysLeft=${result.ssl.daysLeft}`,
       );
     } catch (sslErr: any) {
       console.error(`[Scan] SSL pre-check failed for ${url}:`, sslErr.message);
@@ -166,9 +215,10 @@ export async function POST(req: NextRequest) {
 
     // --- DNS LOOKUP ---
     try {
-      const hostname = new URL(url).hostname;
+      const hostname = parsedUrl.hostname;
       const dnsResult = await lookup(hostname);
       result.dns.ip = dnsResult.address;
+      result.dns.resolved = true;
       console.log(`[Scan] DNS resolved: ${hostname} -> ${dnsResult.address}`);
     } catch (dnsErr: any) {
       console.log(`[Scan] DNS lookup failed: ${dnsErr.message}`);
@@ -176,7 +226,6 @@ export async function POST(req: NextRequest) {
     }
 
     const startTime = Date.now();
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
@@ -192,11 +241,6 @@ export async function POST(req: NextRequest) {
 
       result.httpStatus = response.status;
       result.responseTime = Date.now() - startTime;
-      result.dns.resolved = true;
-
-      if (response.status >= 400) {
-        result.consoleErrors.push(`HTTP ${response.status} error returned`);
-      }
 
       const headers = response.headers;
       result.securityHeaders.hsts = !!headers.get("strict-transport-security");
@@ -207,6 +251,18 @@ export async function POST(req: NextRequest) {
       result.securityHeaders.csp = !!headers.get("content-security-policy");
 
       const html = await response.text();
+
+      // --- SOFT 404 DETECTION ---
+      result.isSoft404 = isSoft404(html, response.status);
+      if (result.isSoft404) {
+        result.consoleErrors.push(
+          `Soft 404 detected: page returns 200 but appears to be a "not found" page`,
+        );
+      }
+
+      if (response.status >= 400) {
+        result.consoleErrors.push(`HTTP ${response.status} error returned`);
+      }
 
       const parseResult = parseHTML(html, url, result);
 
@@ -235,7 +291,9 @@ export async function POST(req: NextRequest) {
       await checkLinks(result, scanStartTime);
 
       // --- CHECK PLUGIN ASSETS FOR BROKEN PLUGINS ---
-      await checkPluginAssets(result, url, scanStartTime);
+      if (result.plugins.detected.length > 0) {
+        await checkPluginAssets(result, parsedUrl.origin, scanStartTime);
+      }
 
       result.performance.loadTime = result.responseTime;
       result.performance.pageSize = htmlSize + imageSize;
@@ -257,7 +315,7 @@ export async function POST(req: NextRequest) {
       calculateHealthScore(result);
 
       console.log(
-        `[PulseVault] Final: status=${result.status}, health=${result.healthScore}, perf=${result.performance.score}, loadTime=${result.performance.loadTime}ms, pageSize=${formatBytes(result.performance.pageSize)}, links=${result.links.total}, broken=${result.links.broken}, protected=${result.links.protected}, plugins=${result.plugins.detected.length}, brokenPlugins=${result.plugins.broken.length}, sslValid=${result.ssl.valid}, sslDaysLeft=${result.ssl.daysLeft}, dnsIp=${result.dns.ip}`,
+        `[PulseVault] Final: status=${result.status}, health=${result.healthScore}, perf=${result.performance.score}, loadTime=${result.performance.loadTime}ms, pageSize=${formatBytes(result.performance.pageSize)}, links=${result.links.total}, broken=${result.links.broken}, protected=${result.links.protected}, plugins=${result.plugins.detected.length}, brokenPlugins=${result.plugins.broken.length}, sslValid=${result.ssl.valid}, sslDaysLeft=${result.ssl.daysLeft}, dnsIp=${result.dns.ip}, soft404=${result.isSoft404}`,
       );
     } catch (err: any) {
       clearTimeout(timeout);
@@ -322,6 +380,7 @@ export async function POST(req: NextRequest) {
           redirectChain: result.redirectChain,
           dnsResolved: result.dns.resolved,
           dnsIp: result.dns.ip || null,
+          isSoft404: result.isSoft404,
           scanResults: {
             timestamp: result.timestamp,
             links: result.links.list,
@@ -350,7 +409,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (effectiveWebsiteId && result.status !== "healthy") {
-      console.log(`[Scan] ? Alert conditions met. Processing alert...`);
+      console.log(`[Scan] Alert conditions met. Processing alert...`);
       try {
         let existingAlerts = await db
           .collection("users")
@@ -376,6 +435,9 @@ export async function POST(req: NextRequest) {
           result.status === "offline" ? "Website Offline" : "Health Score Drop";
 
         const issues: string[] = [];
+        if (result.isSoft404) {
+          issues.push("soft 404 detected");
+        }
         if (result.links.broken > 0) {
           issues.push(
             `${result.links.broken} broken link${result.links.broken !== 1 ? "s" : ""}`,
@@ -430,7 +492,6 @@ export async function POST(req: NextRequest) {
           createdAt: new Date().toISOString(),
         };
 
-        // --- FETCH USER SETTINGS ONCE (for both alert and email) ---
         const settingsSnap = await db
           .collection("users")
           .doc(userId)
@@ -446,7 +507,6 @@ export async function POST(req: NextRequest) {
           `[Scan] User email toggle: ${userEmailToggle}, Plan allows email: ${planAllowsEmail}`,
         );
 
-        // --- CREATE ALERT DOC (only if no open alert exists) ---
         if (existingAlerts.empty) {
           const newAlert = await db
             .collection("users")
@@ -454,16 +514,15 @@ export async function POST(req: NextRequest) {
             .collection("alerts")
             .add(alertData);
           const alertId = newAlert.id;
-          console.log(`[Scan] ? Alert created for ${url}, ID: ${alertId}`);
+          console.log(`[Scan] Alert created for ${url}, ID: ${alertId}`);
 
-          // --- SEND EMAIL ONLY IF PLAN ALLOWS + USER TOGGLE IS ON ---
           if (!planAllowsEmail) {
             console.log(
-              `[Scan] ?? Email blocked: ${planConfig.planName} plan does not include email alerts. Upgrade to Starter+`,
+              `[Scan] Email blocked: ${planConfig.planName} plan does not include email alerts. Upgrade to Starter+`,
             );
           } else if (!userEmailToggle) {
             console.log(
-              `[Scan] ?? Email blocked: user turned off email alerts in Settings`,
+              `[Scan] Email blocked: user turned off email alerts in Settings`,
             );
           } else {
             let userEmail = (payload.email as string) || "";
@@ -478,11 +537,7 @@ export async function POST(req: NextRequest) {
             console.log(`[Scan] User email: ${userEmail || "NOT FOUND"}`);
 
             if (userEmail) {
-              const userSettings = settingsSnap.exists
-                ? settingsSnap.data()
-                : null;
-              const userTz = userSettings?.timezone || "UTC";
-
+              const userTz = settingsData?.timezone || "UTC";
               const formattedTimestamp = new Date(
                 alertData.createdAt,
               ).toLocaleString("en-US", {
@@ -496,7 +551,7 @@ export async function POST(req: NextRequest) {
                 hour12: false,
               });
 
-              console.log(`[Scan] ?? Sending alert email to: ${userEmail}`);
+              console.log(`[Scan] Sending alert email to: ${userEmail}`);
               await sendAlertEmail({
                 to: userEmail,
                 userName,
@@ -524,25 +579,25 @@ export async function POST(req: NextRequest) {
                   : "expired",
                 sslDaysLeft: result.ssl.daysLeft,
               });
-              console.log(`[Scan] ? Alert email sent to ${userEmail}`);
+              console.log(`[Scan] Alert email sent to ${userEmail}`);
             } else {
               console.log(
-                `[Scan] ? No email found for user ${userId}, skipping email`,
+                `[Scan] No email found for user ${userId}, skipping email`,
               );
             }
           }
         } else {
           const alertId = existingAlerts.docs[0].id;
           console.log(
-            `[Scan] ?? Open alert already exists for ${url}, ID: ${alertId}. No duplicate alert or email.`,
+            `[Scan] Open alert already exists for ${url}, ID: ${alertId}. No duplicate alert or email.`,
           );
         }
       } catch (alertErr: any) {
-        console.error("[Scan] ? Alert/email error:", alertErr.message);
+        console.error("[Scan] Alert/email error:", alertErr.message);
       }
     } else {
       console.log(
-        `[Scan] ?? Skipping alert: websiteId=${!!effectiveWebsiteId}, status=${result.status}`,
+        `[Scan] Skipping alert: websiteId=${!!effectiveWebsiteId}, status=${result.status}`,
       );
     }
 
@@ -591,7 +646,7 @@ function parseHTML(html: string, baseUrl: string, result: ScanResult) {
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   const bodyHtml = bodyMatch ? bodyMatch[1] : html;
 
-  // --- EXTRACT ONLY <a> TAG HREFS (not forms, not stylesheets) ---
+  // --- EXTRACT ONLY <a> TAG HREFS ---
   const anchorRegex = /<a[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi;
   while ((match = anchorRegex.exec(bodyHtml)) !== null) {
     try {
@@ -629,45 +684,28 @@ function parseHTML(html: string, baseUrl: string, result: ScanResult) {
   result.forms.working =
     forms.length === 0 || forms.every((f) => f.hasAction && f.hasMethod);
 
-  // --- DETECT ALL PLUGINS FROM /wp-content/plugins/ ---
+  // --- DETECT PLUGINS FROM /wp-content/plugins/ ---
   const pluginRegex = /\/wp-content\/plugins\/([^\/]+)\//gi;
   while ((match = pluginRegex.exec(html)) !== null) {
     const pluginName = match[1];
-    if (!result.plugins.detected.includes(pluginName)) {
+    if (
+      isValidPluginName(pluginName) &&
+      !result.plugins.detected.includes(pluginName)
+    ) {
       result.plugins.detected.push(pluginName);
     }
   }
 
-  return { imageUrls, pluginAssetUrls: extractPluginAssets(html, baseUrl) };
-}
-
-function extractPluginAssets(html: string, baseUrl: string): string[] {
-  const assets: string[] = [];
-  const assetRegex = /\/wp-content\/plugins\/[^\/]+\/[^"']+\.(js|css)/gi;
-  let match;
-  while ((match = assetRegex.exec(html)) !== null) {
-    try {
-      const resolved = new URL(match[0], baseUrl).href;
-      assets.push(resolved);
-    } catch {}
-  }
-  return Array.from(new Set(assets));
+  return { imageUrls };
 }
 
 async function checkPluginAssets(
   result: ScanResult,
-  baseUrl: string,
+  origin: string,
   scanStartTime: number,
 ) {
-  if (result.plugins.detected.length === 0) return;
-
-  const assets = extractPluginAssets(
-    result.consoleErrors.join(" ") + " " + baseUrl,
-    baseUrl,
-  );
-
   const pluginBaseUrls = result.plugins.detected.map(
-    (name) => `${new URL(baseUrl).origin}/wp-content/plugins/${name}/`,
+    (name) => `${origin}/wp-content/plugins/${name}/`,
   );
 
   for (const pluginUrl of pluginBaseUrls) {
@@ -964,6 +1002,11 @@ function calculateHealthScore(result: ScanResult) {
   }
 
   if (result.httpStatus < 400) {
+    if (result.isSoft404) {
+      score -= 35;
+      result.status = "warning";
+    }
+
     if (result.links.total > 0) {
       const brokenRatio = result.links.broken / result.links.total;
       score -= Math.min(25, brokenRatio * 25);
