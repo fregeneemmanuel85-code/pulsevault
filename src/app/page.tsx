@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     description:
       "Monitor your website's uptime, SSL, DNS, API health, forms, JavaScript errors, and performance — all in one dashboard.",
     images: ["/og-image.png"],
-    creator: "@pulsevault",
+    creator: "@pulsevault01",
   },
   robots: {
     index: true,
@@ -163,7 +163,10 @@ export default function LandingPage() {
                 name: "PulseVault",
                 url: "https://pulsevault.website",
                 logo: "https://pulsevault.website/logo.png",
-                sameAs: ["https://twitter.com/pulsevault"],
+                sameAs: [
+                  "https://x.com/PulseVault01",
+                  "https://www.instagram.com/pulsevaultio",
+                ],
               },
             ],
           }),
