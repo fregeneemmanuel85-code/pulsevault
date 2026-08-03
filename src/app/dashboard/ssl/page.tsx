@@ -36,7 +36,7 @@ function getDaysUntilExpiry(sslExpiry: string | undefined): number {
 
 function getSSLStatus(website: Website): SSLStatus["status"] {
   if (website.ssl === "expired") return "expired";
-  const daysLeft = getDaysUntilExpiry(website.sslExpiry);
+  const daysLeft = getDaysUntilExpiry(website.sslExpiry ?? undefined);
   if (daysLeft < 0) return "expired";
   if (daysLeft < 30) return "expiring";
   if (website.ssl === "valid") return "valid";
@@ -89,7 +89,7 @@ export default function SSLMonitorPage() {
   const sslStatuses: SSLStatus[] = websites
     .filter((w) => w.ssl !== "checking")
     .map((w) => {
-      const daysLeft = getDaysUntilExpiry(w.sslExpiry);
+      const daysLeft = getDaysUntilExpiry(w.sslExpiry ?? undefined);
       const status = getSSLStatus(w);
       return {
         website: w,
