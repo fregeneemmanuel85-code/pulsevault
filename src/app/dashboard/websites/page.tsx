@@ -69,7 +69,7 @@ export default function WebsitesPage() {
       const body = JSON.stringify({ url: site.url, websiteId: site.id });
       console.log("[LIST] Scan request body:", body);
 
-      const res = await fetch("/api/scan", {
+      const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,

@@ -89,8 +89,8 @@ export interface Website {
   uptime: string;
   responseTime: string;
   ssl: "valid" | "expired" | "expiring" | "unknown" | "checking";
-  sslExpiry?: string;
-  sslDaysLeft?: number;
+  sslExpiry?: string | null;
+  sslDaysLeft?: number | null;
   lastChecked: string;
   isMonitoring: boolean;
   createdAt: string;
@@ -123,11 +123,16 @@ export interface Website {
   };
   redirectChain: string[];
   scanResults?: ScanResult;
+
+  // Deep scan additions
+  spaCrashes?: boolean;
+  runtimeErrors?: Array<{ message: string; source?: string }>;
+  headlessAvailable?: boolean;
 }
 
 export interface ScanResult {
   timestamp: string;
-  links: { url: string; status: number; ok: boolean }[];
+  links: { url: string; status: number; ok: boolean; protected?: boolean }[];
   plugins: { name: string; status: "ok" | "broken" }[];
   forms: { selector: string; hasAction: boolean; hasMethod: boolean }[];
   consoleErrors: string[];
@@ -136,6 +141,15 @@ export interface ScanResult {
   pageSize: number;
   performanceScore?: number;
   resourceErrors: { url: string; type: string }[];
+
+  // Deep scan additions
+  techStack?: {
+    detected: string[];
+    frameworks?: Record<string, boolean>;
+  };
+  runtimeErrors?: Array<{ message: string; source?: string }>;
+  spaCrashes?: boolean;
+  headlessAvailable?: boolean;
 }
 
 export interface Alert {
@@ -469,6 +483,47 @@ export async function addAlertWithNotifications(
       "[addAlertWithNotifications] Failed to create incident:",
       e.message,
     );
+  }
+
+  // ─── EMAIL NOTIFICATION (non-blocking) ───
+  try {
+    const auth = getAuth();
+    const userEmail = auth.currentUser?.email;
+    if (userEmail) {
+      const settings = await getSettings();
+      if (settings?.notifications?.email !== false) {
+        fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: userEmail,
+            userName: auth.currentUser?.displayName || settings?.name || "User",
+            alertType: data.type,
+            severity: data.severity,
+            message: data.message,
+            target: data.target,
+            timestamp: alert.createdAt,
+          }),
+        })
+          .then(async (res) => {
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              console.error("[Email] Failed:", err.error || res.statusText);
+            } else {
+              console.log("[Email] Sent to", userEmail);
+            }
+          })
+          .catch((err) => {
+            console.error("[Email] Network error:", err.message);
+          });
+      } else {
+        console.log("[Email] Skipped — user disabled email notifications");
+      }
+    } else {
+      console.warn("[Email] No user email found");
+    }
+  } catch (e: any) {
+    console.error("[addAlertWithNotifications] Email setup error:", e.message);
   }
 
   return alert;

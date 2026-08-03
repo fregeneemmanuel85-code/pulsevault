@@ -167,7 +167,7 @@ export default function DashboardPage() {
   const runDeepScan = async (site: Website) => {
     try {
       console.log("[Scan] Starting scan for", site.url);
-      const res = await fetch("/api/scan", {
+      const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: site.url }),

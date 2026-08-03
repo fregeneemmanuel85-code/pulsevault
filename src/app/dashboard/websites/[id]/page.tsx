@@ -88,6 +88,7 @@ export default function WebsiteDetailPage() {
     return () => unsubPlan();
   }, []);
 
+  /* ─── FIXED: Merge scan results instead of blind overwrite ─── */
   useEffect(() => {
     const unsub = subscribeToWebsite(id, (data) => {
       if (justScanned.current) {
@@ -98,7 +99,52 @@ export default function WebsiteDetailPage() {
       }
       setWebsite(data);
       setLoading(false);
-      if (data?.scanResults) setScanResult(data.scanResults);
+
+      if (data?.scanResults) {
+        setScanResult((prev) => {
+          const incoming = data.scanResults as ScanResult;
+
+          // If incoming has no techStack but we already had one, KEEP the old one
+          const incomingTechCount = incoming?.techStack?.detected?.length ?? 0;
+          const prevTechCount = prev?.techStack?.detected?.length ?? 0;
+
+          const mergedTechStack =
+            incomingTechCount > 0
+              ? incoming.techStack
+              : prevTechCount > 0
+                ? prev!.techStack
+                : incoming.techStack;
+
+          // Same for runtimeErrors, spaCrashes, headlessAvailable
+          const mergedRuntimeErrors =
+            (incoming?.runtimeErrors?.length ?? 0) > 0
+              ? incoming.runtimeErrors
+              : (prev?.runtimeErrors?.length ?? 0) > 0
+                ? prev!.runtimeErrors
+                : incoming.runtimeErrors;
+
+          const mergedSpaCrashes =
+            incoming?.spaCrashes ??
+            prev?.spaCrashes ??
+            data?.spaCrashes ??
+            false;
+
+          const mergedHeadless =
+            incoming?.headlessAvailable ??
+            prev?.headlessAvailable ??
+            data?.headlessAvailable ??
+            false;
+
+          return {
+            ...prev,
+            ...incoming,
+            techStack: mergedTechStack,
+            runtimeErrors: mergedRuntimeErrors,
+            spaCrashes: mergedSpaCrashes,
+            headlessAvailable: mergedHeadless,
+          } as ScanResult;
+        });
+      }
     });
     return () => unsub();
   }, [id]);
@@ -108,27 +154,32 @@ export default function WebsiteDetailPage() {
     setScanning(true);
 
     try {
-      const res = await fetch("/api/scan", {
+      const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: website.url, websiteId: website.id }),
       });
       const result = await res.json();
 
-      const storedResult: ScanResult = {
+      const storedResult = {
         timestamp: result.timestamp,
-        links: result.links.list || [],
-        plugins: result.plugins.detected.map((name: string) => ({
-          name,
-          status: result.plugins.broken.includes(name) ? "broken" : "ok",
-        })),
-        forms: result.forms.list || [],
-        consoleErrors: result.consoleErrors,
-        apiChecks: result.apiChecks,
-        loadTime: result.performance.loadTime,
-        pageSize: result.performance.pageSize,
-        performanceScore: result.performance.score,
+        links: result.links?.list || [],
+        plugins:
+          result.plugins?.detected?.map((name: string) => ({
+            name,
+            status: result.plugins?.broken?.includes(name) ? "broken" : "ok",
+          })) || [],
+        forms: result.forms?.list || [],
+        consoleErrors: result.consoleErrors || [],
+        apiChecks: result.apiChecks || [],
+        loadTime: result.performance?.loadTime || 0,
+        pageSize: result.performance?.pageSize || 0,
+        performanceScore: result.performance?.score || 0,
         resourceErrors: [],
+        techStack: result.techStack || { detected: [] },
+        runtimeErrors: result.runtimeErrors || [],
+        spaCrashes: result.spaCrashes || false,
+        headlessAvailable: result.headlessAvailable || false,
       };
 
       setScanResult(storedResult);
@@ -147,8 +198,8 @@ export default function WebsiteDetailPage() {
                   ? "expiring"
                   : "valid"
                 : "expired",
-              sslExpiry: result.ssl.expiry || undefined,
-              sslDaysLeft: result.ssl.daysLeft || undefined,
+              sslExpiry: result.ssl.expiry || null,
+              sslDaysLeft: result.ssl.daysLeft ?? null,
               dnsStatus: result.dns.resolved ? "ok" : "failed",
               brokenLinks: result.links.broken,
               protectedLinks: result.links.protected || 0,
@@ -164,12 +215,15 @@ export default function WebsiteDetailPage() {
               mixedContent: result.mixedContent,
               securityHeaders: result.securityHeaders,
               redirectChain: result.redirectChain,
+              spaCrashes: result.spaCrashes,
+              runtimeErrors: result.runtimeErrors,
+              headlessAvailable: result.headlessAvailable,
               lastChecked: new Date().toLocaleTimeString(),
             }
           : null,
       );
 
-      await updateWebsite(id, {
+      const updatePayload = {
         status: result.status,
         health: result.healthScore,
         httpStatus: result.httpStatus,
@@ -179,8 +233,8 @@ export default function WebsiteDetailPage() {
             ? "expiring"
             : "valid"
           : "expired",
-        sslExpiry: result.ssl.expiry || undefined,
-        sslDaysLeft: result.ssl.daysLeft || undefined,
+        sslExpiry: result.ssl.expiry || null,
+        sslDaysLeft: result.ssl.daysLeft ?? null,
         dnsStatus: result.dns.resolved ? "ok" : "failed",
         brokenLinks: result.links.broken,
         protectedLinks: result.links.protected || 0,
@@ -196,9 +250,14 @@ export default function WebsiteDetailPage() {
         mixedContent: result.mixedContent,
         securityHeaders: result.securityHeaders,
         redirectChain: result.redirectChain,
+        spaCrashes: result.spaCrashes,
+        runtimeErrors: result.runtimeErrors,
+        headlessAvailable: result.headlessAvailable,
         scanResults: storedResult,
-        lastChecked: new Date().toLocaleTimeString(),
-      });
+        lastChecked: new Date().toISOString(),
+      };
+
+      await updateWebsite(id, JSON.parse(JSON.stringify(updatePayload)));
 
       setTimeout(() => {
         justScanned.current = false;
@@ -366,7 +425,6 @@ export default function WebsiteDetailPage() {
               >
                 {website.name}
               </h1>
-              {/* Priority Badge */}
               <div style={{ position: "relative" }}>
                 <button
                   onClick={() =>
@@ -475,7 +533,6 @@ export default function WebsiteDetailPage() {
                 </span>
               )}
             </div>
-            {/* URL */}
             <a
               href={website.url}
               target="_blank"
@@ -513,7 +570,6 @@ export default function WebsiteDetailPage() {
           </div>
         </div>
 
-        {/* BUTTONS */}
         <div
           style={{
             display: "flex",
@@ -758,7 +814,7 @@ export default function WebsiteDetailPage() {
           boxSizing: "border-box",
         }}
       >
-        {/* Links - FIXED DISPLAY */}
+        {/* Links */}
         <div
           style={{
             backgroundColor: "white",
@@ -797,31 +853,69 @@ export default function WebsiteDetailPage() {
           </div>
           <div
             style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: "0.25rem",
-              marginBottom: "0.5rem",
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "0.5rem",
+              marginBottom: "0.75rem",
             }}
           >
-            <span
-              style={{
-                fontSize: "clamp(1.5rem, 4vw, 2rem)",
-                fontWeight: "700",
-                color: website.brokenLinks > 0 ? "#ef4444" : "#22c55e",
-              }}
-            >
-              {website.totalLinks}
-            </span>
-            <span
-              style={{
-                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                color: "#94a3b8",
-              }}
-            >
-              {website.brokenLinks > 0
-                ? `total / ${website.brokenLinks} broken`
-                : "total"}
-            </span>
+            <div style={{ textAlign: "center" }}>
+              <span
+                style={{
+                  fontSize: "clamp(1.25rem, 3.5vw, 1.5rem)",
+                  fontWeight: "700",
+                  color: "#0f172a",
+                }}
+              >
+                {website.totalLinks || 0}
+              </span>
+              <p
+                style={{
+                  fontSize: "clamp(0.625rem, 1.5vw, 0.75rem)",
+                  color: "#94a3b8",
+                }}
+              >
+                Total
+              </p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <span
+                style={{
+                  fontSize: "clamp(1.25rem, 3.5vw, 1.5rem)",
+                  fontWeight: "700",
+                  color: website.brokenLinks > 0 ? "#ef4444" : "#22c55e",
+                }}
+              >
+                {website.brokenLinks || 0}
+              </span>
+              <p
+                style={{
+                  fontSize: "clamp(0.625rem, 1.5vw, 0.75rem)",
+                  color: "#94a3b8",
+                }}
+              >
+                Broken
+              </p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <span
+                style={{
+                  fontSize: "clamp(1.25rem, 3.5vw, 1.5rem)",
+                  fontWeight: "700",
+                  color: "#f59e0b",
+                }}
+              >
+                {website.protectedLinks || 0}
+              </span>
+              <p
+                style={{
+                  fontSize: "clamp(0.625rem, 1.5vw, 0.75rem)",
+                  color: "#94a3b8",
+                }}
+              >
+                Protected
+              </p>
+            </div>
           </div>
           {scanResult && scanResult.links.filter((l) => !l.ok).length > 0 && (
             <div
@@ -829,7 +923,9 @@ export default function WebsiteDetailPage() {
                 display: "flex",
                 flexDirection: "column",
                 gap: "0.375rem",
-                marginTop: "0.75rem",
+                marginTop: "0.5rem",
+                paddingTop: "0.5rem",
+                borderTop: "1px solid #f1f5f9",
               }}
             >
               {scanResult.links
@@ -852,7 +948,7 @@ export default function WebsiteDetailPage() {
           )}
         </div>
 
-        {/* Plugins - FIXED DISPLAY */}
+        {/* Plugins */}
         <div
           style={{
             backgroundColor: "white",
@@ -1310,6 +1406,425 @@ export default function WebsiteDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* ─── TECH STACK ─── */}
+        <div
+          style={{
+            backgroundColor: "white",
+            borderRadius: "1rem",
+            border: "1px solid #e2e8f0",
+            padding: "clamp(1rem, 3vw, 1.25rem)",
+            minWidth: 0,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <svg
+              style={{
+                width: "clamp(1rem, 2.5vw, 1.25rem)",
+                height: "clamp(1rem, 2.5vw, 1.25rem)",
+                color: "#8b5cf6",
+                flexShrink: 0,
+              }}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+              />
+            </svg>
+            <h3
+              style={{
+                fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                fontWeight: "600",
+                color: "#0f172a",
+              }}
+            >
+              Tech Stack
+            </h3>
+          </div>
+
+          {(scanResult?.techStack?.detected?.length ?? 0) > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.375rem",
+              }}
+            >
+              {scanResult!.techStack!.detected.map((tech: any, i: number) => {
+                const techName =
+                  typeof tech === "string" ? tech : tech?.name || "Unknown";
+                return (
+                  <span
+                    key={i}
+                    style={{
+                      fontSize: "clamp(0.6875rem, 1.5vw, 0.75rem)",
+                      fontWeight: "500",
+                      padding: "0.25rem 0.625rem",
+                      borderRadius: "9999px",
+                      backgroundColor: "#f3f0ff",
+                      color: "#7c3aed",
+                      border: "1px solid #ddd6fe",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {techName}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <p
+              style={{
+                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                color: "#94a3b8",
+              }}
+            >
+              No technologies detected
+            </p>
+          )}
+          {scanResult?.techStack?.frameworks &&
+            Object.keys(scanResult.techStack.frameworks).length > 0 && (
+              <div
+                style={{
+                  marginTop: "0.75rem",
+                  paddingTop: "0.75rem",
+                  borderTop: "1px solid #f1f5f9",
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                    fontWeight: "600",
+                    color: "#94a3b8",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Frameworks
+                </p>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.375rem",
+                  }}
+                >
+                  {Object.entries(scanResult.techStack.frameworks).map(
+                    ([name, detected]) => (
+                      <div
+                        key={name}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          fontSize: "clamp(0.75rem, 2vw, 0.8125rem)",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#475569",
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {name}
+                        </span>
+                        <span
+                          style={{
+                            color: detected ? "#22c55e" : "#94a3b8",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {detected ? "✓" : "—"}
+                        </span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
+        </div>
+
+        {/* ─── API HEALTH ─── */}
+        <div
+          style={{
+            backgroundColor: "white",
+            borderRadius: "1rem",
+            border: "1px solid #e2e8f0",
+            padding: "clamp(1rem, 3vw, 1.25rem)",
+            minWidth: 0,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <Activity
+              style={{
+                width: "clamp(1rem, 2.5vw, 1.25rem)",
+                height: "clamp(1rem, 2.5vw, 1.25rem)",
+                color: "#2563eb",
+                flexShrink: 0,
+              }}
+            />
+            <h3
+              style={{
+                fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                fontWeight: "600",
+                color: "#0f172a",
+              }}
+            >
+              API Health
+            </h3>
+            {scanResult?.headlessAvailable !== undefined && (
+              <span
+                style={{
+                  fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                  padding: "0.125rem 0.5rem",
+                  borderRadius: "9999px",
+                  backgroundColor: scanResult.headlessAvailable
+                    ? "#f0fdf4"
+                    : "#f1f5f9",
+                  color: scanResult.headlessAvailable ? "#15803d" : "#64748b",
+                  fontWeight: "500",
+                }}
+              >
+                {scanResult.headlessAvailable ? "Headless On" : "Headless Off"}
+              </span>
+            )}
+          </div>
+
+          {(scanResult?.apiChecks?.length ?? 0) > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.375rem",
+              }}
+            >
+              {scanResult!.apiChecks!.map(
+                (
+                  check: { endpoint: string; ok: boolean; status?: number },
+                  i: number,
+                ) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "0.375rem 0.5rem",
+                      borderRadius: "0.375rem",
+                      backgroundColor: "#f8fafc",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <code
+                      style={{
+                        fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                        color: "#64748b",
+                        fontFamily: "monospace",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      {check.endpoint}
+                    </code>
+                    <span
+                      style={{
+                        fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                        fontWeight: "600",
+                        padding: "0.125rem 0.375rem",
+                        borderRadius: "0.25rem",
+                        backgroundColor: check.ok ? "#f0fdf4" : "#fef2f2",
+                        color: check.ok ? "#15803d" : "#dc2626",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {check.ok ? "OK" : check.status || "404"}
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
+          ) : (
+            <p
+              style={{
+                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                color: "#94a3b8",
+              }}
+            >
+              No API endpoints checked
+            </p>
+          )}
+        </div>
+
+        {/* ─── SPA CRASH ─── */}
+        {(scanResult?.spaCrashes ?? website?.spaCrashes) && (
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "1rem",
+              border: "1px solid #fecaca",
+              padding: "clamp(1rem, 3vw, 1.25rem)",
+              minWidth: 0,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              <AlertTriangle
+                style={{
+                  width: "clamp(1rem, 2.5vw, 1.25rem)",
+                  height: "clamp(1rem, 2.5vw, 1.25rem)",
+                  color: "#ef4444",
+                  flexShrink: 0,
+                }}
+              />
+              <h3
+                style={{
+                  fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                  fontWeight: "600",
+                  color: "#dc2626",
+                }}
+              >
+                SPA Crash Detected
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                color: "#7f1d1d",
+              }}
+            >
+              The headless browser detected that the React/Vue/Angular app
+              failed to mount properly.
+            </p>
+          </div>
+        )}
+
+        {/* ─── RUNTIME ERRORS ─── */}
+        {(scanResult?.runtimeErrors?.length ??
+          website?.runtimeErrors?.length ??
+          0) > 0 && (
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "1rem",
+              border: "1px solid #fed7aa",
+              padding: "clamp(1rem, 3vw, 1.25rem)",
+              minWidth: 0,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                marginBottom: "1rem",
+              }}
+            >
+              <Code
+                style={{
+                  width: "clamp(1rem, 2.5vw, 1.25rem)",
+                  height: "clamp(1rem, 2.5vw, 1.25rem)",
+                  color: "#f97316",
+                  flexShrink: 0,
+                }}
+              />
+              <h3
+                style={{
+                  fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                  fontWeight: "600",
+                  color: "#0f172a",
+                }}
+              >
+                Runtime Errors (
+                {scanResult?.runtimeErrors?.length ||
+                  website?.runtimeErrors?.length ||
+                  0}
+                )
+              </h3>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.375rem",
+                maxHeight: "12rem",
+                overflowY: "auto",
+              }}
+            >
+              {(scanResult?.runtimeErrors ?? website?.runtimeErrors ?? []).map(
+                (err: { message: string; source?: string }, i: number) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: "0.5rem",
+                      borderRadius: "0.375rem",
+                      backgroundColor: "#fff7ed",
+                      border: "1px solid #ffedd5",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: "clamp(0.6875rem, 1.5vw, 0.75rem)",
+                        fontFamily: "monospace",
+                        color: "#9a3412",
+                        wordBreak: "break-all",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {err.message}
+                    </p>
+                    {err.source && (
+                      <p
+                        style={{
+                          fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                          color: "#c2410c",
+                          marginTop: "0.25rem",
+                          wordBreak: "break-all",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {err.source}
+                      </p>
+                    )}
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* SSL Certificate */}
