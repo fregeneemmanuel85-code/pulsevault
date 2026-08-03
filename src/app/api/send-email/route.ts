@@ -4,8 +4,36 @@ import { sendAlertEmail } from "@/lib/email-server";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { to, userName, alertType, severity, message, target, timestamp } =
-      body;
+
+    const {
+      to,
+      userName,
+      alertType,
+      severity,
+      message,
+      target,
+      timestamp,
+      // Scan data fields
+      healthScore,
+      brokenLinks,
+      totalLinks,
+      brokenPlugins,
+      totalPlugins,
+      jsErrors,
+      formsWorking,
+      totalForms,
+      mixedContent,
+      loadTime,
+      pageSize,
+      httpStatus,
+      sslStatus,
+      sslDaysLeft,
+      // NEW fields
+      techStack,
+      runtimeErrors,
+      spaCrashes,
+      redirectChain,
+    } = body;
 
     if (!to || !message) {
       return NextResponse.json(
@@ -22,7 +50,27 @@ export async function POST(req: NextRequest) {
       message,
       target,
       timestamp,
+      healthScore,
+      brokenLinks,
+      totalLinks,
+      brokenPlugins,
+      totalPlugins,
+      jsErrors,
+      formsWorking,
+      totalForms,
+      mixedContent,
+      loadTime,
+      pageSize,
+      httpStatus,
+      sslStatus,
+      sslDaysLeft,
+      // NEW
+      techStack,
+      runtimeErrors,
+      spaCrashes,
+      redirectChain,
     });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("[Email API] Error:", err);

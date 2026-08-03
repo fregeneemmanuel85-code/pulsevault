@@ -20,6 +20,11 @@ export interface AlertEmailData {
   httpStatus?: number;
   sslStatus?: "valid" | "expiring" | "expired";
   sslDaysLeft?: number;
+  // NEW FIELDS
+  techStack?: string[];
+  runtimeErrors?: Array<{ message: string; source?: string }>;
+  spaCrashes?: boolean;
+  redirectChain?: string[];
 }
 
 export interface ReportEmailData {
@@ -80,9 +85,56 @@ export async function sendAlertEmail(data: AlertEmailData) {
   const httpStatus = data.httpStatus ?? 0;
   const sslStatus = data.sslStatus ?? "valid";
   const sslDaysLeft = data.sslDaysLeft ?? 0;
+  // NEW defaults
+  const techStack = data.techStack ?? [];
+  const runtimeErrors = data.runtimeErrors ?? [];
+  const spaCrashes = data.spaCrashes ?? false;
+  const redirectChain = data.redirectChain ?? [];
 
   const severityColor = getSeverityColor(data.severity);
   const severityBg = getSeverityBg(data.severity);
+
+  // Build tech stack badges HTML
+  const techStackHtml =
+    techStack.length > 0
+      ? techStack
+          .map(
+            (tech) =>
+              `<span style="display:inline-block;padding:4px 10px;background:#f3f0ff;color:#7c3aed;border-radius:9999px;font-size:11px;font-weight:500;margin:0 4px 4px 0;border:1px solid #ddd6fe;">${tech}</span>`,
+          )
+          .join("")
+      : "";
+
+  // Build runtime errors HTML
+  const runtimeErrorsHtml =
+    runtimeErrors.length > 0
+      ? `
+      <div style="background:#fff7ed;padding:14px;border-radius:8px;margin:12px 0 0 0;border:1px solid #ffedd5;">
+        <p style="font-size:12px;font-weight:700;color:#c2410c;margin:0 0 8px 0;">⚠️ Runtime Errors (${runtimeErrors.length})</p>
+        ${runtimeErrors
+          .slice(0, 3)
+          .map(
+            (err) =>
+              `<p style="font-size:12px;color:#9a3412;margin:0 0 4px 0;font-family:monospace;word-break:break-all;">${err.message}</p>`,
+          )
+          .join("")}
+      </div>`
+      : "";
+
+  // Build redirect chain HTML
+  const redirectChainHtml =
+    redirectChain.length > 0
+      ? `
+      <div style="background:#f8fafc;padding:14px;border-radius:8px;margin:12px 0 0 0;border:1px solid #e2e8f0;">
+        <p style="font-size:12px;font-weight:700;color:#0f172a;margin:0 0 8px 0;">🔗 Redirect Chain (${redirectChain.length} hops)</p>
+        ${redirectChain
+          .map(
+            (url, i) =>
+              `<p style="font-size:11px;color:#64748b;margin:0 0 3px 0;word-break:break-all;">${i + 1}. ${url}</p>`,
+          )
+          .join("")}
+      </div>`
+      : "";
 
   const html = `
     <!DOCTYPE html>
@@ -117,6 +169,26 @@ export async function sendAlertEmail(data: AlertEmailData) {
                     <p style="font-size:17px;font-weight:700;color:#0f172a;margin:0 0 6px 0;word-break:break-all;">${data.target}</p>
                     <p style="font-size:14px;color:#475569;margin:0;line-height:1.5;">${data.message}</p>
                   </div>
+
+                  <!-- SPA Crash Warning -->
+                  ${
+                    spaCrashes
+                      ? `<div style="background:#fef2f2;padding:14px;border-radius:8px;margin:0 0 16px 0;border:1px solid #fecaca;">
+                          <p style="font-size:13px;font-weight:700;color:#dc2626;margin:0;">💥 SPA Crash Detected</p>
+                          <p style="font-size:12px;color:#7f1d1d;margin:4px 0 0 0;">Your React/Vue/Angular app failed to mount properly.</p>
+                         </div>`
+                      : ""
+                  }
+
+                  <!-- Tech Stack -->
+                  ${
+                    techStackHtml
+                      ? `<div style="margin:0 0 16px 0;">
+                          <p style="font-size:12px;font-weight:700;color:#0f172a;margin:0 0 8px 0;">🛠️ Detected Tech Stack</p>
+                          <div style="line-height:1.6;">${techStackHtml}</div>
+                         </div>`
+                      : ""
+                  }
 
                   <!-- Stats Grid: Row 1 -->
                   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px 0;">
@@ -189,6 +261,12 @@ export async function sendAlertEmail(data: AlertEmailData) {
                       </td>
                     </tr>
                   </table>
+
+                  <!-- Runtime Errors -->
+                  ${runtimeErrorsHtml}
+
+                  <!-- Redirect Chain -->
+                  ${redirectChainHtml}
 
                   <!-- SSL Status -->
                   <div style="background:#f8fafc;padding:16px;border-radius:8px;margin:12px 0 0 0;border:1px solid #e2e8f0;">
