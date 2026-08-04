@@ -490,47 +490,6 @@ export async function addAlertWithNotifications(
     );
   }
 
-  // ─── EMAIL NOTIFICATION (non-blocking) ───
-  try {
-    const auth = getAuth();
-    const userEmail = auth.currentUser?.email;
-    if (userEmail) {
-      const settings = await getSettings();
-      if (settings?.notifications?.email !== false) {
-        fetch("/api/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: userEmail,
-            userName: auth.currentUser?.displayName || settings?.name || "User",
-            alertType: data.type,
-            severity: data.severity,
-            message: data.message,
-            target: data.target,
-            timestamp: alert.createdAt,
-          }),
-        })
-          .then(async (res) => {
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              console.error("[Email] Failed:", err.error || res.statusText);
-            } else {
-              console.log("[Email] Sent to", userEmail);
-            }
-          })
-          .catch((err) => {
-            console.error("[Email] Network error:", err.message);
-          });
-      } else {
-        console.log("[Email] Skipped — user disabled email notifications");
-      }
-    } else {
-      console.warn("[Email] No user email found");
-    }
-  } catch (e: any) {
-    console.error("[addAlertWithNotifications] Email setup error:", e.message);
-  }
-
   return alert;
 }
 
