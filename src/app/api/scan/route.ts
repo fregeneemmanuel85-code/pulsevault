@@ -80,7 +80,6 @@ export async function POST(req: NextRequest) {
       `[Scan] Raw request: url=${url}, websiteId=${websiteId || "NOT_PROVIDED"}`,
     );
 
-    // --- FETCH USER PLAN (for feature enforcement) ---
     const db = getFirestore();
     const planSnap = await db
       .collection("users")
@@ -145,7 +144,6 @@ export async function POST(req: NextRequest) {
       redirectChain: [],
     };
 
-    // --- SSL CHECK ---
     try {
       const hostname = new URL(url).hostname;
       const sslCert = await checkSSLCertificate(hostname);
@@ -164,7 +162,6 @@ export async function POST(req: NextRequest) {
       result.ssl = { valid: false, expiry: null, daysLeft: 0 };
     }
 
-    // --- DNS LOOKUP ---
     try {
       const hostname = new URL(url).hostname;
       const dnsResult = await lookup(hostname);
@@ -234,7 +231,6 @@ export async function POST(req: NextRequest) {
 
       await checkLinks(result, scanStartTime);
 
-      // --- CHECK PLUGIN ASSETS FOR BROKEN PLUGINS ---
       await checkPluginAssets(result, url, scanStartTime);
 
       result.performance.loadTime = result.responseTime;
@@ -350,7 +346,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (effectiveWebsiteId && result.status !== "healthy") {
-      console.log(`[Scan] ? Alert conditions met. Processing alert...`);
+      console.log(`[Scan] 🚨 Alert conditions met. Processing alert...`);
       try {
         let existingAlerts = await db
           .collection("users")
@@ -430,7 +426,6 @@ export async function POST(req: NextRequest) {
           createdAt: new Date().toISOString(),
         };
 
-        // --- FETCH USER SETTINGS ONCE (for both alert and email) ---
         const settingsSnap = await db
           .collection("users")
           .doc(userId)
@@ -446,7 +441,6 @@ export async function POST(req: NextRequest) {
           `[Scan] User email toggle: ${userEmailToggle}, Plan allows email: ${planAllowsEmail}`,
         );
 
-        // --- CREATE ALERT DOC (only if no open alert exists) ---
         if (existingAlerts.empty) {
           const newAlert = await db
             .collection("users")
@@ -454,16 +448,15 @@ export async function POST(req: NextRequest) {
             .collection("alerts")
             .add(alertData);
           const alertId = newAlert.id;
-          console.log(`[Scan] ? Alert created for ${url}, ID: ${alertId}`);
+          console.log(`[Scan] 🚨 Alert created for ${url}, ID: ${alertId}`);
 
-          // --- SEND EMAIL ONLY IF PLAN ALLOWS + USER TOGGLE IS ON ---
           if (!planAllowsEmail) {
             console.log(
-              `[Scan] ?? Email blocked: ${planConfig.planName} plan does not include email alerts. Upgrade to Starter+`,
+              `[Scan] 📧 Email blocked: ${planConfig.planName} plan does not include email alerts. Upgrade to Starter+`,
             );
           } else if (!userEmailToggle) {
             console.log(
-              `[Scan] ?? Email blocked: user turned off email alerts in Settings`,
+              `[Scan] 📧 Email blocked: user turned off email alerts in Settings`,
             );
           } else {
             let userEmail = (payload.email as string) || "";
@@ -496,7 +489,7 @@ export async function POST(req: NextRequest) {
                 hour12: false,
               });
 
-              console.log(`[Scan] ?? Sending alert email to: ${userEmail}`);
+              console.log(`[Scan] 📧 Sending alert email to: ${userEmail}`);
               await sendAlertEmail({
                 to: userEmail,
                 userName,
@@ -506,16 +499,6 @@ export async function POST(req: NextRequest) {
                 target: url,
                 timestamp: formattedTimestamp,
                 healthScore: result.healthScore,
-                brokenLinks: result.links.broken,
-                totalLinks: result.links.total,
-                brokenPlugins: result.plugins.broken.length,
-                totalPlugins: result.plugins.detected.length,
-                jsErrors: result.jsErrors,
-                formsWorking: result.forms.working,
-                totalForms: result.forms.total,
-                mixedContent: result.mixedContent,
-                loadTime: result.performance.loadTime,
-                pageSize: result.performance.pageSize,
                 httpStatus: result.httpStatus,
                 sslStatus: result.ssl.valid
                   ? result.ssl.daysLeft < 30
@@ -523,26 +506,27 @@ export async function POST(req: NextRequest) {
                     : "valid"
                   : "expired",
                 sslDaysLeft: result.ssl.daysLeft,
+                loadTime: result.performance.loadTime,
               });
-              console.log(`[Scan] ? Alert email sent to ${userEmail}`);
+              console.log(`[Scan] ✅ Alert email sent to ${userEmail}`);
             } else {
               console.log(
-                `[Scan] ? No email found for user ${userId}, skipping email`,
+                `[Scan] ⚠️ No email found for user ${userId}, skipping email`,
               );
             }
           }
         } else {
           const alertId = existingAlerts.docs[0].id;
           console.log(
-            `[Scan] ?? Open alert already exists for ${url}, ID: ${alertId}. No duplicate alert or email.`,
+            `[Scan] 📋 Open alert already exists for ${url}, ID: ${alertId}. No duplicate alert or email.`,
           );
         }
       } catch (alertErr: any) {
-        console.error("[Scan] ? Alert/email error:", alertErr.message);
+        console.error("[Scan] 🚨 Alert/email error:", alertErr.message);
       }
     } else {
       console.log(
-        `[Scan] ?? Skipping alert: websiteId=${!!effectiveWebsiteId}, status=${result.status}`,
+        `[Scan] ✅ Skipping alert: websiteId=${!!effectiveWebsiteId}, status=${result.status}`,
       );
     }
 
@@ -566,7 +550,6 @@ function parseHTML(html: string, baseUrl: string, result: ScanResult) {
   const imageUrls: string[] = [];
   const baseDomain = new URL(baseUrl).hostname;
 
-  // --- EXTRACT IMAGES ---
   const srcRegex = /src\s*=\s*["']([^"']+)["']/gi;
   let match;
 
@@ -591,7 +574,6 @@ function parseHTML(html: string, baseUrl: string, result: ScanResult) {
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   const bodyHtml = bodyMatch ? bodyMatch[1] : html;
 
-  // --- EXTRACT ONLY <a> TAG HREFS (not forms, not stylesheets) ---
   const anchorRegex = /<a[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi;
   while ((match = anchorRegex.exec(bodyHtml)) !== null) {
     try {
@@ -612,7 +594,6 @@ function parseHTML(html: string, baseUrl: string, result: ScanResult) {
     ok: true,
   }));
 
-  // --- EXTRACT FORMS ---
   const formRegex = /<form[^>]*>/gi;
   const forms: ScanResult["forms"]["list"] = [];
   let formMatch;
@@ -629,7 +610,6 @@ function parseHTML(html: string, baseUrl: string, result: ScanResult) {
   result.forms.working =
     forms.length === 0 || forms.every((f) => f.hasAction && f.hasMethod);
 
-  // --- DETECT ALL PLUGINS FROM /wp-content/plugins/ ---
   const pluginRegex = /\/wp-content\/plugins\/([^\/]+)\//gi;
   while ((match = pluginRegex.exec(html)) !== null) {
     const pluginName = match[1];
