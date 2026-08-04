@@ -125,9 +125,14 @@ export interface Website {
   scanResults?: ScanResult;
 
   // Deep scan additions
+  // Deep scan additions
   spaCrashes?: boolean;
   runtimeErrors?: Array<{ message: string; source?: string }>;
   headlessAvailable?: boolean;
+  techStack?: {
+    detected: { name: string; confidence: string; category: string }[];
+    primary?: string;
+  };
 }
 
 export interface ScanResult {

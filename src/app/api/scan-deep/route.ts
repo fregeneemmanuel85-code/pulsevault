@@ -71,11 +71,6 @@ interface ScanResult {
   headlessAvailable: boolean;
 }
 
-// const MAX_LINKS_TO_CHECK = 30;
-// const LINK_TIMEOUT_MS = 3000;
-// const IMAGE_TIMEOUT_MS = 3000;
-// const MAX_SCAN_TIME_MS = 15000;
-
 const isLocalDev = process.env.NODE_ENV === "development";
 
 const MAX_LINKS_TO_CHECK = isLocalDev ? 10 : 30;
@@ -143,7 +138,8 @@ export async function POST(req: NextRequest) {
   const scanPromise = (async () => {
     try {
       const body = await req.json();
-      const { url, websiteId, userId: bodyUserId } = body;
+      const { url, websiteId, userId: bodyUserId, techOnly } = body;
+      const isTechOnly = techOnly === true;
       targetUrl = url || "";
       targetWebsiteId = websiteId;
       targetUserId = bodyUserId || "";
@@ -182,7 +178,7 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(
-        `[Scan] Raw request: url=${targetUrl}, websiteId=${targetWebsiteId || "NOT_PROVIDED"}`,
+        `[Scan] Raw request: url=${targetUrl}, websiteId=${targetWebsiteId || "NOT_PROVIDED"}, techOnly=${isTechOnly}`,
       );
 
       const db = getFirestore();
@@ -306,8 +302,6 @@ export async function POST(req: NextRequest) {
 
       while (redirectCount <= maxRedirects) {
         const ctrl = new AbortController();
-        // const fetchTimeout = setTimeout(() => ctrl.abort(), 10000);
-
         const fetchTimeout = setTimeout(
           () => ctrl.abort(),
           isLocalDev ? 30000 : 10000,
@@ -322,7 +316,7 @@ export async function POST(req: NextRequest) {
               redirect: "manual",
               headers: BROWSER_HEADERS,
             },
-            1, // 1 retry for the main page fetch
+            1,
           );
           clearTimeout(fetchTimeout);
 
@@ -378,6 +372,47 @@ export async function POST(req: NextRequest) {
       result.techStack = detectTechStack(html, headers);
       result.spaCrashes = detectSPACrashes(html, result.techStack);
       result.runtimeErrors = detectRuntimeErrors(html);
+
+      /* ─── TECH-ONLY FAST PATH ─── */
+      if (isTechOnly) {
+        console.log(
+          `[Scan] Tech-only mode: detected ${result.techStack.detected.length} technologies`,
+        );
+
+        if (effectiveWebsiteId) {
+          const websiteRef = db
+            .collection("users")
+            .doc(userId)
+            .collection("websites")
+            .doc(effectiveWebsiteId);
+
+          const existingSnap = await websiteRef.get();
+          const existing = existingSnap.exists ? existingSnap.data() : null;
+
+          const finalTechStack =
+            result.techStack.detected.length > 0
+              ? result.techStack
+              : existing?.techStack || { detected: [] };
+
+          await websiteRef.update({
+            techStack: finalTechStack,
+            spaCrashes: result.spaCrashes,
+            runtimeErrors: result.runtimeErrors,
+            "scanResults.techStack": finalTechStack,
+            "scanResults.spaCrashes": result.spaCrashes,
+            "scanResults.runtimeErrors": result.runtimeErrors,
+            updatedAt: new Date().toISOString(),
+          });
+          console.log(`[Scan] Tech-only scan saved to Firestore`);
+        }
+
+        return NextResponse.json({
+          ...result,
+          techOnly: true,
+          message: `Detected ${result.techStack.detected.length} technologies`,
+        });
+      }
+
       result.apiChecks = await checkAPIs(html, currentFetchUrl, scanStartTime);
       result.headlessAvailable = false;
 
@@ -459,7 +494,6 @@ export async function POST(req: NextRequest) {
           const finalSslDaysLeft =
             result.ssl.daysLeft || existing?.sslDaysLeft || 0;
 
-          /* ── Preserve existing techStack if new scan didn't detect anything ── */
           const finalTechStack =
             result.techStack.detected.length > 0
               ? result.techStack
@@ -496,7 +530,7 @@ export async function POST(req: NextRequest) {
             spaCrashes: result.spaCrashes,
             runtimeErrors: result.runtimeErrors,
             headlessAvailable: result.headlessAvailable,
-            techStack: finalTechStack, // ← Preserved
+            techStack: finalTechStack,
             scanResults: {
               timestamp: result.timestamp,
               links: result.links.list,
@@ -511,7 +545,7 @@ export async function POST(req: NextRequest) {
               pageSize: result.performance.pageSize,
               performanceScore: result.performance.score,
               resourceErrors: [],
-              techStack: finalTechStack, // ← Preserved
+              techStack: finalTechStack,
               runtimeErrors: result.runtimeErrors,
               spaCrashes: result.spaCrashes,
               headlessAvailable: result.headlessAvailable,
@@ -695,16 +729,6 @@ export async function POST(req: NextRequest) {
                   target: targetUrl,
                   timestamp: formattedTimestamp,
                   healthScore: result.healthScore,
-                  brokenLinks: result.links.broken,
-                  totalLinks: result.links.total,
-                  brokenPlugins: result.plugins.broken.length,
-                  totalPlugins: result.plugins.detected.length,
-                  jsErrors: result.jsErrors,
-                  formsWorking: result.forms.working,
-                  totalForms: result.forms.total,
-                  mixedContent: result.mixedContent,
-                  loadTime: result.performance.loadTime,
-                  pageSize: result.performance.pageSize,
                   httpStatus: result.httpStatus,
                   sslStatus: result.ssl.valid
                     ? result.ssl.daysLeft < 30
@@ -712,6 +736,7 @@ export async function POST(req: NextRequest) {
                       : "valid"
                     : "expired",
                   sslDaysLeft: result.ssl.daysLeft,
+                  loadTime: result.performance.loadTime,
                 });
                 console.log(`[Scan] ✅ Alert email sent to ${userEmail}`);
               } else {
@@ -1115,7 +1140,6 @@ async function checkAPIs(
 
   const checkList = Array.from(found).slice(0, 5);
 
-  // NEW: If nothing detected in HTML, return empty. UI hides the section.
   if (checkList.length === 0) return [];
 
   for (const endpoint of checkList) {

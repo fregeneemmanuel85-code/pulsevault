@@ -83,9 +83,15 @@ export async function POST(req: NextRequest) {
     // Calculate stats
     const totalWebsites = websites.length;
     const healthySites = websites.filter((w) => w.status === "healthy").length;
+    const warningSites = websites.filter((w) => w.status === "warning").length;
+    const criticalSites = websites.filter(
+      (w) => w.status === "critical",
+    ).length;
     const offlineSites = websites.filter((w) => w.status === "offline").length;
-    const openAlerts = alerts.filter((a) => a.status === "open").length;
-    const resolvedAlerts = alerts.filter((a) => a.status === "resolved").length;
+    const openIncidents = alerts.filter((a) => a.status === "open").length;
+    const resolvedIncidents = alerts.filter(
+      (a) => a.status === "resolved",
+    ).length;
     const avgHealthScore =
       totalWebsites > 0
         ? Math.round(
@@ -108,8 +114,8 @@ export async function POST(req: NextRequest) {
     const topIssues: string[] = [];
     if (offlineSites > 0)
       topIssues.push(`${offlineSites} website(s) currently offline`);
-    if (openAlerts > 0)
-      topIssues.push(`${openAlerts} open alert(s) need attention`);
+    if (openIncidents > 0)
+      topIssues.push(`${openIncidents} open incident(s) need attention`);
     if (sslExpired > 0)
       topIssues.push(`${sslExpired} SSL certificate(s) expired`);
     if (sslExpiringSoon > 0)
@@ -135,11 +141,13 @@ export async function POST(req: NextRequest) {
       period,
       reportDate,
       totalWebsites,
-      healthySites,
-      offlineSites,
-      openAlerts,
-      resolvedAlerts,
       avgHealthScore,
+      healthySites,
+      warningSites,
+      criticalSites,
+      offlineSites,
+      openIncidents,
+      resolvedIncidents,
       sslExpiringSoon,
       sslExpired,
       topIssues: topIssues.slice(0, 5),
@@ -152,7 +160,7 @@ export async function POST(req: NextRequest) {
       totalWebsites,
       healthySites,
       offlineSites,
-      openAlerts,
+      openIncidents,
       status: "sent",
     });
 

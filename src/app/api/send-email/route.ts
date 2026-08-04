@@ -13,26 +13,11 @@ export async function POST(req: NextRequest) {
       message,
       target,
       timestamp,
-      // Scan data fields
       healthScore,
-      brokenLinks,
-      totalLinks,
-      brokenPlugins,
-      totalPlugins,
-      jsErrors,
-      formsWorking,
-      totalForms,
-      mixedContent,
-      loadTime,
-      pageSize,
       httpStatus,
       sslStatus,
       sslDaysLeft,
-      // NEW fields
-      techStack,
-      runtimeErrors,
-      spaCrashes,
-      redirectChain,
+      loadTime,
     } = body;
 
     if (!to || !message) {
@@ -51,24 +36,10 @@ export async function POST(req: NextRequest) {
       target,
       timestamp,
       healthScore,
-      brokenLinks,
-      totalLinks,
-      brokenPlugins,
-      totalPlugins,
-      jsErrors,
-      formsWorking,
-      totalForms,
-      mixedContent,
-      loadTime,
-      pageSize,
       httpStatus,
       sslStatus,
       sslDaysLeft,
-      // NEW
-      techStack,
-      runtimeErrors,
-      spaCrashes,
-      redirectChain,
+      loadTime,
     });
 
     return NextResponse.json({ success: true });

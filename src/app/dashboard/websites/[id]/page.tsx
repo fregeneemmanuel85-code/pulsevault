@@ -21,6 +21,7 @@ import {
   Code,
   Zap,
   Star,
+  Cpu,
 } from "lucide-react";
 import {
   subscribeToWebsite,
@@ -76,6 +77,7 @@ export default function WebsiteDetailPage() {
   const [website, setWebsite] = useState<Website | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [techScanning, setTechScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [plan, setPlan] = useState<UserPlan | null>(null);
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
@@ -104,7 +106,6 @@ export default function WebsiteDetailPage() {
         setScanResult((prev) => {
           const incoming = data.scanResults as ScanResult;
 
-          // If incoming has no techStack but we already had one, KEEP the old one
           const incomingTechCount = incoming?.techStack?.detected?.length ?? 0;
           const prevTechCount = prev?.techStack?.detected?.length ?? 0;
 
@@ -115,7 +116,6 @@ export default function WebsiteDetailPage() {
                 ? prev!.techStack
                 : incoming.techStack;
 
-          // Same for runtimeErrors, spaCrashes, headlessAvailable
           const mergedRuntimeErrors =
             (incoming?.runtimeErrors?.length ?? 0) > 0
               ? incoming.runtimeErrors
@@ -269,6 +269,76 @@ export default function WebsiteDetailPage() {
     }
   };
 
+  const runTechScan = async () => {
+    if (!website || techScanning) return;
+    setTechScanning(true);
+
+    try {
+      const res = await fetch("/api/scan-deep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: website.url,
+          websiteId: website.id,
+          techOnly: true,
+        }),
+      });
+      const result = await res.json();
+
+      const detected = result.techStack?.detected || [];
+
+      setScanResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              techStack: result.techStack || { detected: [] },
+              spaCrashes: result.spaCrashes || false,
+              runtimeErrors: result.runtimeErrors || [],
+            }
+          : ({
+              techStack: result.techStack || { detected: [] },
+              spaCrashes: result.spaCrashes || false,
+              runtimeErrors: result.runtimeErrors || [],
+            } as ScanResult),
+      );
+
+      setWebsite((prev) =>
+        prev
+          ? ({
+              ...prev,
+              techStack: result.techStack || { detected: [] },
+              spaCrashes: result.spaCrashes || false,
+              runtimeErrors: result.runtimeErrors || [],
+              scanResults: {
+                ...(prev.scanResults || {}),
+                techStack: result.techStack || { detected: [] },
+                spaCrashes: result.spaCrashes || false,
+                runtimeErrors: result.runtimeErrors || [],
+              },
+            } as Website)
+          : null,
+      );
+
+      await updateWebsite(id, {
+        techStack: result.techStack || { detected: [] },
+        spaCrashes: result.spaCrashes || false,
+        runtimeErrors: result.runtimeErrors || [],
+        "scanResults.techStack": result.techStack || { detected: [] },
+        "scanResults.spaCrashes": result.spaCrashes || false,
+        "scanResults.runtimeErrors": result.runtimeErrors || [],
+        updatedAt: new Date().toISOString(),
+      } as any);
+
+      console.log(
+        `[TechScan] Detected ${detected.length} technologies for ${website.url}`,
+      );
+    } catch (err) {
+      console.error("Tech scan failed:", err);
+    } finally {
+      setTechScanning(false);
+    }
+  };
+
   const handlePriorityChange = async (newPriority: PriorityLevel) => {
     if (!website) return;
     await updateWebsite(website.id, { priority: newPriority });
@@ -354,6 +424,13 @@ export default function WebsiteDetailPage() {
 
   const sc = getStatusColor(website.status);
   const pConfig = getPriorityConfig(website.priority || "normal");
+
+  const websiteTechStack = (website as any)?.techStack;
+  const hasTechData =
+    (scanResult?.techStack?.detected?.length ?? 0) > 0 ||
+    (websiteTechStack?.detected?.length ?? 0) > 0;
+
+  const techData = scanResult?.techStack ?? websiteTechStack;
 
   return (
     <div
@@ -1426,24 +1503,14 @@ export default function WebsiteDetailPage() {
               marginBottom: "1rem",
             }}
           >
-            <svg
+            <Cpu
               style={{
                 width: "clamp(1rem, 2.5vw, 1.25rem)",
                 height: "clamp(1rem, 2.5vw, 1.25rem)",
                 color: "#8b5cf6",
                 flexShrink: 0,
               }}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-              />
-            </svg>
+            />
             <h3
               style={{
                 fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
@@ -1455,7 +1522,7 @@ export default function WebsiteDetailPage() {
             </h3>
           </div>
 
-          {(scanResult?.techStack?.detected?.length ?? 0) > 0 ? (
+          {hasTechData ? (
             <div
               style={{
                 display: "flex",
@@ -1463,7 +1530,7 @@ export default function WebsiteDetailPage() {
                 gap: "0.375rem",
               }}
             >
-              {scanResult!.techStack!.detected.map((tech: any, i: number) => {
+              {techData?.detected?.map((tech: any, i: number) => {
                 const techName =
                   typeof tech === "string" ? tech : tech?.name || "Unknown";
                 return (
@@ -1486,76 +1553,62 @@ export default function WebsiteDetailPage() {
               })}
             </div>
           ) : (
-            <p
+            <div
               style={{
-                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                color: "#94a3b8",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: "0.75rem",
               }}
             >
-              No technologies detected
-            </p>
-          )}
-          {scanResult?.techStack?.frameworks &&
-            Object.keys(scanResult.techStack.frameworks).length > 0 && (
-              <div
+              <p
                 style={{
-                  marginTop: "0.75rem",
-                  paddingTop: "0.75rem",
-                  borderTop: "1px solid #f1f5f9",
+                  fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                  color: "#94a3b8",
+                  margin: 0,
                 }}
               >
-                <p
-                  style={{
-                    fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
-                    fontWeight: "600",
-                    color: "#94a3b8",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Frameworks
-                </p>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "0.375rem",
-                  }}
-                >
-                  {Object.entries(scanResult.techStack.frameworks).map(
-                    ([name, detected]) => (
-                      <div
-                        key={name}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          fontSize: "clamp(0.75rem, 2vw, 0.8125rem)",
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: "#475569",
-                            textTransform: "capitalize",
-                          }}
-                        >
-                          {name}
-                        </span>
-                        <span
-                          style={{
-                            color: detected ? "#22c55e" : "#94a3b8",
-                            fontWeight: "600",
-                          }}
-                        >
-                          {detected ? "✓" : "—"}
-                        </span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
+                No technologies detected yet
+              </p>
+              <button
+                onClick={runTechScan}
+                disabled={techScanning}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "#f3f0ff",
+                  color: "#7c3aed",
+                  border: "1px solid #ddd6fe",
+                  borderRadius: "0.5rem",
+                  fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                  fontWeight: "500",
+                  cursor: techScanning ? "not-allowed" : "pointer",
+                  opacity: techScanning ? 0.6 : 1,
+                  transition: "all 0.2s",
+                }}
+              >
+                {techScanning ? (
+                  <Loader2
+                    style={{
+                      width: "clamp(0.875rem, 2vw, 1rem)",
+                      height: "clamp(0.875rem, 2vw, 1rem)",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  />
+                ) : (
+                  <Cpu
+                    style={{
+                      width: "clamp(0.875rem, 2vw, 1rem)",
+                      height: "clamp(0.875rem, 2vw, 1rem)",
+                    }}
+                  />
+                )}
+                {techScanning ? "Detecting..." : "Detect Tech Stack"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ─── API HEALTH ─── */}

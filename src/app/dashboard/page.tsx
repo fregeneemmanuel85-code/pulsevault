@@ -434,8 +434,9 @@ export default function DashboardPage() {
   };
 
   const healthy = websites.filter((w) => w.status === "healthy").length;
-  const offline = websites.filter((w) => w.status === "offline").length;
   const warning = websites.filter((w) => w.status === "warning").length;
+  const critical = websites.filter((w) => w.status === "critical").length;
+  const offline = websites.filter((w) => w.status === "offline").length;
 
   const recentAlerts = alerts
     .filter((a) => {
@@ -449,6 +450,8 @@ export default function DashboardPage() {
       return { bg: "rgba(34,197,94,0.1)", text: "#22c55e", dot: "#22c55e" };
     if (status === "offline")
       return { bg: "rgba(239,68,68,0.1)", text: "#ef4444", dot: "#ef4444" };
+    if (status === "critical")
+      return { bg: "rgba(220,38,38,0.1)", text: "#dc2626", dot: "#dc2626" };
     return { bg: "rgba(245,158,11,0.1)", text: "#f59e0b", dot: "#f59e0b" };
   };
 
@@ -627,6 +630,14 @@ export default function DashboardPage() {
             color: "#f59e0b",
             bg: "rgba(245,158,11,0.1)",
             sub: "need attention",
+          },
+          {
+            label: "Critical",
+            value: critical,
+            icon: AlertTriangle,
+            color: "#dc2626",
+            bg: "rgba(220,38,38,0.1)",
+            sub: "urgent issues",
           },
           {
             label: "Offline",
