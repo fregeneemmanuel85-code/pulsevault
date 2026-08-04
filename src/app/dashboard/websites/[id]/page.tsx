@@ -32,6 +32,7 @@ import {
   type PriorityLevel,
   type UserPlan,
 } from "@/lib/firestore";
+import { useToast } from "@/components/ToastProvider";
 
 const PLAN_ORDER: Record<string, number> = {
   free: 0,
@@ -82,6 +83,7 @@ export default function WebsiteDetailPage() {
   const [plan, setPlan] = useState<UserPlan | null>(null);
   const [showPriorityMenu, setShowPriorityMenu] = useState(false);
   const justScanned = useRef(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const unsubPlan = subscribeToUserPlan((p) => {
@@ -152,6 +154,7 @@ export default function WebsiteDetailPage() {
   const runDeepScan = async () => {
     if (!website || scanning) return;
     setScanning(true);
+    showToast("Starting deep scan...", "info");
 
     try {
       const res = await fetch("/api/scan-deep", {
@@ -259,11 +262,17 @@ export default function WebsiteDetailPage() {
 
       await updateWebsite(id, JSON.parse(JSON.stringify(updatePayload)));
 
+      showToast(
+        `Scan complete — ${result.status === "healthy" ? "All good" : `Status: ${result.status}`}`,
+        result.status === "healthy" ? "success" : "warning",
+      );
+
       setTimeout(() => {
         justScanned.current = false;
       }, 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Scan failed:", err);
+      showToast("Scan failed: " + err.message, "error");
     } finally {
       setScanning(false);
     }
@@ -272,6 +281,7 @@ export default function WebsiteDetailPage() {
   const runTechScan = async () => {
     if (!website || techScanning) return;
     setTechScanning(true);
+    showToast("Detecting tech stack...", "info");
 
     try {
       const res = await fetch("/api/scan-deep", {
@@ -329,11 +339,14 @@ export default function WebsiteDetailPage() {
         updatedAt: new Date().toISOString(),
       } as any);
 
+      showToast(`Detected ${detected.length} technologies`, "success");
+
       console.log(
         `[TechScan] Detected ${detected.length} technologies for ${website.url}`,
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error("Tech scan failed:", err);
+      showToast("Tech scan failed: " + err.message, "error");
     } finally {
       setTechScanning(false);
     }

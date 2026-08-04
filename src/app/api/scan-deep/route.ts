@@ -787,7 +787,11 @@ export async function POST(req: NextRequest) {
         status: 504,
       });
     }
-    throw err;
+    console.error(`[PulseVault] UNCAUGHT FATAL:`, err.stack || err.message);
+    return NextResponse.json(
+      { error: "Scan crashed", detail: err.message, url: targetUrl },
+      { status: 500 },
+    );
   }
 }
 
@@ -1584,7 +1588,7 @@ function calculateHealthScore(result: ScanResult) {
     const perfFactor = result.performance.score / 100;
     score = Math.round(score * (0.7 + 0.3 * perfFactor));
 
-    if (score < 30) result.status = "critical";
+    if (score <= 30) result.status = "critical";
     else if (score < 60) result.status = "warning";
     else if (score < 80) result.status = "warning";
     else result.status = "healthy";

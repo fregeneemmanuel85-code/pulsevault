@@ -20,6 +20,8 @@ import {
   Shield,
   Lock,
   HelpCircle,
+  Siren, // ← add
+  BarChart3,
 } from "lucide-react";
 import {
   subscribeToWebsites,
@@ -46,13 +48,13 @@ const navItems = [
   {
     label: "Incidents",
     href: "/dashboard/incidents",
-    icon: Globe,
+    icon: Siren,
     plan: "starter",
   },
   {
     label: "Reports",
     href: "/dashboard/reports",
-    icon: Globe,
+    icon: BarChart3,
     plan: "business",
   },
   { label: "SSL Monitor", href: "/dashboard/ssl", icon: Shield, plan: "free" },
