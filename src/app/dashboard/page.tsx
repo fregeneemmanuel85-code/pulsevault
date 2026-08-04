@@ -167,6 +167,14 @@ export default function DashboardPage() {
   const runDeepScan = async (site: Website) => {
     try {
       console.log("[Scan] Starting scan for", site.url);
+
+      // ← ADD THIS BLOCK
+      const auth = getAuth();
+      if (!auth.currentUser) {
+        console.log("[Scan] Skipped — user logged out");
+        return;
+      }
+
       const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

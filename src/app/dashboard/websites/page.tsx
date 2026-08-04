@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
+
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   Globe,
@@ -68,6 +69,13 @@ export default function WebsitesPage() {
     try {
       const body = JSON.stringify({ url: site.url, websiteId: site.id });
       console.log("[LIST] Scan request body:", body);
+
+      // ← ADD THIS BLOCK
+      const auth = getAuth();
+      if (!auth.currentUser) {
+        console.log("[Scan] Skipped — user logged out");
+        return;
+      }
 
       const res = await fetch("/api/scan-deep", {
         method: "POST",

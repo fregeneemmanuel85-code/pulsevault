@@ -461,11 +461,8 @@ export async function addAlertWithNotifications(
   );
 
   const alert = await addAlert(data);
-
   if (!alert) {
-    console.log(
-      "[addAlertWithNotifications] Alert already exists, skipping notifications",
-    );
+    console.log("[addAlertWithNotifications] Duplicate alert, skipping");
     return null;
   }
 
@@ -482,12 +479,8 @@ export async function addAlertWithNotifications(
       status: "open",
       alertId: alert.id,
     });
-    console.log("[addAlertWithNotifications] Incident created for tracking");
   } catch (e: any) {
-    console.error(
-      "[addAlertWithNotifications] Failed to create incident:",
-      e.message,
-    );
+    console.error("[addAlertWithNotifications] Incident failed:", e.message);
   }
 
   return alert;

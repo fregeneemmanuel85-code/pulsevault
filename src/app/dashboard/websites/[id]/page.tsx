@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -157,6 +158,14 @@ export default function WebsiteDetailPage() {
     showToast("Starting deep scan...", "info");
 
     try {
+      // ← ADD THIS BLOCK HERE
+      const auth = getAuth();
+      if (!auth.currentUser) {
+        console.log("[Scan] Skipped — user logged out");
+        setScanning(false);
+        return;
+      }
+
       const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -284,6 +293,14 @@ export default function WebsiteDetailPage() {
     showToast("Detecting tech stack...", "info");
 
     try {
+      // ← ADD THIS BLOCK
+      const auth = getAuth();
+      if (!auth.currentUser) {
+        console.log("[Scan] Skipped — user logged out");
+        setTechScanning(false);
+        return;
+      }
+
       const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
