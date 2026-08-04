@@ -1,15 +1,11 @@
 import { getFirestore } from "firebase-admin/firestore";
 import "@/lib/firebase-admin";
+import {
+  sendAlertEmail as sendFromServer,
+  AlertEmailData,
+} from "@/lib/email-server";
 
-interface AlertEmailData {
-  to: string;
-  userName: string;
-  alertType: string;
-  severity: "critical" | "warning" | "info";
-  message: string;
-  target: string;
-  timestamp: string;
-}
+export type { AlertEmailData };
 
 export async function shouldSendEmail(userId: string): Promise<boolean> {
   try {
@@ -20,7 +16,7 @@ export async function shouldSendEmail(userId: string): Promise<boolean> {
       .collection("settings")
       .doc("preferences")
       .get();
-    if (!snap.exists) return true; // default to on
+    if (!snap.exists) return true;
     const data = snap.data();
     return data?.notifications?.email !== false;
   } catch {
@@ -29,17 +25,5 @@ export async function shouldSendEmail(userId: string): Promise<boolean> {
 }
 
 export async function sendAlertEmail(data: AlertEmailData) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/send-email`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    },
-  );
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || "Failed to send email");
-  }
-  return res.json();
+  return sendFromServer(data);
 }

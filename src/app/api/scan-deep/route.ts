@@ -110,6 +110,13 @@ function getDefaultResult(url: string): ScanResult {
   };
 }
 
+/* ── Strip undefined values (Firestore rejects them) ── */
+function cleanUndefined(obj: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  );
+}
+
 /* ── Retry wrapper for fetch ── */
 async function fetchWithRetry(
   url: string,
@@ -380,30 +387,40 @@ export async function POST(req: NextRequest) {
         );
 
         if (effectiveWebsiteId) {
-          const websiteRef = db
-            .collection("users")
-            .doc(userId)
-            .collection("websites")
-            .doc(effectiveWebsiteId);
+          try {
+            const websiteRef = db
+              .collection("users")
+              .doc(userId)
+              .collection("websites")
+              .doc(effectiveWebsiteId);
 
-          const existingSnap = await websiteRef.get();
-          const existing = existingSnap.exists ? existingSnap.data() : null;
+            const existingSnap = await websiteRef.get();
+            const existing = existingSnap.exists ? existingSnap.data() : null;
 
-          const finalTechStack =
-            result.techStack.detected.length > 0
-              ? result.techStack
-              : existing?.techStack || { detected: [] };
+            const finalTechStack =
+              result.techStack.detected.length > 0
+                ? result.techStack
+                : existing?.techStack || { detected: [] };
 
-          await websiteRef.update({
-            techStack: finalTechStack,
-            spaCrashes: result.spaCrashes,
-            runtimeErrors: result.runtimeErrors,
-            "scanResults.techStack": finalTechStack,
-            "scanResults.spaCrashes": result.spaCrashes,
-            "scanResults.runtimeErrors": result.runtimeErrors,
-            updatedAt: new Date().toISOString(),
-          });
-          console.log(`[Scan] Tech-only scan saved to Firestore`);
+            const techPayload = cleanUndefined({
+              techStack: finalTechStack,
+              spaCrashes: result.spaCrashes,
+              runtimeErrors: result.runtimeErrors,
+              "scanResults.techStack": finalTechStack,
+              "scanResults.spaCrashes": result.spaCrashes,
+              "scanResults.runtimeErrors": result.runtimeErrors,
+              updatedAt: new Date().toISOString(),
+            });
+
+            if (existingSnap.exists) {
+              await websiteRef.update(techPayload);
+            } else {
+              await websiteRef.set(techPayload, { merge: true });
+            }
+            console.log(`[Scan] Tech-only scan saved to Firestore`);
+          } catch (techSaveErr: any) {
+            console.error(`[Scan] Tech-only save failed:`, techSaveErr.message);
+          }
         }
 
         return NextResponse.json({
@@ -492,14 +509,14 @@ export async function POST(req: NextRequest) {
           const finalSslExpiry =
             result.ssl.expiry || existing?.sslExpiry || null;
           const finalSslDaysLeft =
-            result.ssl.daysLeft || existing?.sslDaysLeft || 0;
+            result.ssl.daysLeft ?? existing?.sslDaysLeft ?? 0;
 
           const finalTechStack =
             result.techStack.detected.length > 0
               ? result.techStack
               : existing?.techStack || { detected: [] };
 
-          await websiteRef.update({
+          const payload = cleanUndefined({
             status: result.status,
             health: result.healthScore,
             uptime: `${result.healthScore}%`,
@@ -527,6 +544,7 @@ export async function POST(req: NextRequest) {
             redirectChain: result.redirectChain,
             dnsResolved: result.dns.resolved,
             dnsIp: result.dns.ip || null,
+            dnsStatus: result.dns.resolved ? "ok" : "failed",
             spaCrashes: result.spaCrashes,
             runtimeErrors: result.runtimeErrors,
             headlessAvailable: result.headlessAvailable,
@@ -551,6 +569,12 @@ export async function POST(req: NextRequest) {
               headlessAvailable: result.headlessAvailable,
             },
           });
+
+          if (existingSnap.exists) {
+            await websiteRef.update(payload);
+          } else {
+            await websiteRef.set(payload, { merge: true });
+          }
 
           console.log(
             `[Scan] Saved scan results to Firestore for ${targetUrl}`,
