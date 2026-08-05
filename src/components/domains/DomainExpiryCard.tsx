@@ -9,17 +9,29 @@ import {
 } from "lucide-react";
 
 interface Props {
-  expiry: string | null;
-  daysLeft: number | null;
-  registrar: string | null;
+  expiry: string | null | undefined;
+  daysLeft: number | null | undefined;
+  registrar: string | null | undefined;
 }
 
 export default function DomainExpiryCard({
   expiry,
-  daysLeft,
+  daysLeft: rawDaysLeft,
   registrar,
 }: Props) {
+  const daysLeft = rawDaysLeft ?? null;
+
   const getStatus = () => {
+    // Platform-managed domains (Netlify, Vercel, etc.)
+    if (daysLeft === null && registrar) {
+      return {
+        color: "bg-blue-50 text-blue-700 border-blue-200",
+        icon: <Shield size={18} className="text-blue-500" />,
+        label: "Managed",
+        subtext: `Platform-managed by ${registrar}`,
+      };
+    }
+
     if (daysLeft === null) {
       return {
         color: "bg-gray-100 text-gray-700 border-gray-200",
