@@ -4,29 +4,46 @@ export interface DomainWhoisInfo {
   registrar: string | null;
 }
 
+// Platform-managed domains — no WHOIS expiry
+const PLATFORM_DOMAINS: Record<string, string> = {
+  "netlify.app": "Netlify",
+  "vercel.app": "Vercel",
+  "github.io": "GitHub Pages",
+  "gitlab.io": "GitLab Pages",
+  "herokuapp.com": "Heroku",
+  "firebaseapp.com": "Firebase Hosting",
+  "web.app": "Firebase Hosting",
+  "surge.sh": "Surge",
+  "render.com": "Render",
+  "onrender.com": "Render",
+  "railway.app": "Railway",
+  "glitch.me": "Glitch",
+  "repl.co": "Replit",
+  "pages.dev": "Cloudflare Pages",
+  "deno.dev": "Deno Deploy",
+  "fly.dev": "Fly.io",
+};
+
 function getRootDomain(hostname: string): string {
-  // Remove www.
-  let domain = hostname.replace(/^www\./, "");
+  const parts = hostname.replace(/^www\./, "").split(".");
+  if (parts.length <= 2) return parts.join(".");
 
-  // Handle subdomains — extract root domain
-  const parts = domain.split(".");
-  if (parts.length > 2) {
-    // e.g., test-pulse2.netlify.app → netlify.app
-    // e.g., www.example.co.uk → example.co.uk (complex TLDs)
-    // Simple approach: take last 2 parts for common TLDs
-    const tld = parts[parts.length - 1];
-    const sld = parts[parts.length - 2];
-
-    // If TLD is a known 2-part ccTLD like .co.uk, take 3 parts
-    const twoPartTlds = ["co", "com", "org", "gov", "ac", "edu", "net", "mil"];
-    if (parts.length > 2 && twoPartTlds.includes(parts[parts.length - 2])) {
-      domain = parts.slice(-3).join(".");
-    } else {
-      domain = `${sld}.${tld}`;
-    }
+  // Handle common two-part TLDs
+  const twoPartTlds = [
+    "co",
+    "com",
+    "org",
+    "gov",
+    "ac",
+    "edu",
+    "net",
+    "mil",
+    "go",
+  ];
+  if (twoPartTlds.includes(parts[parts.length - 2])) {
+    return parts.slice(-3).join(".");
   }
-
-  return domain;
+  return parts.slice(-2).join(".");
 }
 
 export async function getDomainWhoisInfo(
@@ -34,54 +51,32 @@ export async function getDomainWhoisInfo(
 ): Promise<DomainWhoisInfo> {
   try {
     const hostname = new URL(rawUrl).hostname;
-    const cleanDomain = getRootDomain(hostname);
 
-    console.log(`[WHOIS] Looking up root domain: ${cleanDomain}`);
-
-    // Try free WHOIS API first (no API key needed for basic lookups)
-    try {
-      const res = await fetch(
-        `https://api.whoisfreaks.com/v1.0/whois?whois=live&domainName=${cleanDomain}`,
-        { signal: AbortSignal.timeout(8000) },
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const expiryStr =
-          data.expiration_date ||
-          data.registry_expiry_date ||
-          data.expires ||
-          null;
-
-        if (expiryStr) {
-          const expiryDate = new Date(expiryStr);
-          const now = new Date();
-          const daysLeft = Math.ceil(
-            (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-          );
-
-          console.log(
-            `[WHOIS] ${cleanDomain}: expires ${expiryDate.toISOString()}, ${daysLeft} days left`,
-          );
-
-          return {
-            expiryDate: expiryDate.toISOString(),
-            daysLeft,
-            registrar: data.registrar_name || data.registrar || null,
-          };
-        }
+    // 1. Check if it's a platform subdomain (e.g., *.netlify.app)
+    for (let i = 0; i < hostname.split(".").length - 1; i++) {
+      const domain = hostname.split(".").slice(i).join(".");
+      if (PLATFORM_DOMAINS[domain]) {
+        console.log(
+          `[WHOIS] Platform detected: ${hostname} → ${PLATFORM_DOMAINS[domain]}`,
+        );
+        return {
+          expiryDate: null,
+          daysLeft: null,
+          registrar: PLATFORM_DOMAINS[domain],
+        };
       }
-    } catch (apiErr: any) {
-      console.log(`[WHOIS] API failed: ${apiErr.message}`);
     }
 
-    // Fallback: try ip2whois free tier
+    // 2. For custom domains, try WHOIS API
+    const rootDomain = getRootDomain(hostname);
+    console.log(`[WHOIS] Looking up custom domain: ${rootDomain}`);
+
+    // Try ip2whois free tier
     try {
       const res = await fetch(
-        `https://api.ip2whois.com/v2?key=FREE&domain=${cleanDomain}`,
+        `https://api.ip2whois.com/v2?key=FREE&domain=${rootDomain}`,
         { signal: AbortSignal.timeout(8000) },
       );
-
       if (res.ok) {
         const data = await res.json();
         if (data.expire_date) {
@@ -90,7 +85,7 @@ export async function getDomainWhoisInfo(
           const daysLeft = Math.ceil(
             (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
           );
-
+          console.log(`[WHOIS] ${rootDomain}: expires in ${daysLeft} days`);
           return {
             expiryDate: expiryDate.toISOString(),
             daysLeft,
@@ -98,20 +93,38 @@ export async function getDomainWhoisInfo(
           };
         }
       }
-    } catch (fallbackErr: any) {
-      console.log(`[WHOIS] Fallback failed: ${fallbackErr.message}`);
+    } catch (e: any) {
+      console.log(`[WHOIS] ip2whois failed: ${e.message}`);
     }
 
-    // For platforms like Netlify/Vercel, we know they're managed
-    if (cleanDomain === "netlify.app" || cleanDomain === "vercel.app") {
-      return {
-        expiryDate: null,
-        daysLeft: null,
-        registrar: cleanDomain === "netlify.app" ? "Netlify" : "Vercel",
-      };
+    // Try whoisfreaks (no key required for basic)
+    try {
+      const res = await fetch(
+        `https://api.whoisfreaks.com/v1.0/whois?whois=live&domainName=${rootDomain}`,
+        { signal: AbortSignal.timeout(8000) },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const expiryStr =
+          data.expiration_date || data.registry_expiry_date || data.expires;
+        if (expiryStr) {
+          const expiryDate = new Date(expiryStr);
+          const now = new Date();
+          const daysLeft = Math.ceil(
+            (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          return {
+            expiryDate: expiryDate.toISOString(),
+            daysLeft,
+            registrar: data.registrar_name || data.registrar || null,
+          };
+        }
+      }
+    } catch (e: any) {
+      console.log(`[WHOIS] whoisfreaks failed: ${e.message}`);
     }
 
-    console.log(`[WHOIS] No expiry data found for ${cleanDomain}`);
+    console.log(`[WHOIS] No expiry data for ${rootDomain}`);
     return {
       expiryDate: null,
       daysLeft: null,
