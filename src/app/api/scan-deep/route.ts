@@ -4,6 +4,8 @@ import { getFirestore } from "firebase-admin/firestore";
 import { lookup } from "dns/promises";
 import "@/lib/firebase-admin";
 import { sendAlertEmail } from "@/lib/email-server";
+import { getDomainWhoisInfo } from "@/lib/whois";
+import { scanSEO } from "@/lib/seo-scanner";
 import { checkSSLCertificate } from "@/lib/ssl-checker";
 import { getPlanConfig, canSendEmailAlerts } from "@/lib/plan-guard";
 
@@ -69,6 +71,11 @@ interface ScanResult {
   runtimeErrors: Array<{ type: string; message: string; location?: string }>;
   spaCrashes: boolean;
   headlessAvailable: boolean;
+  seo: {
+    score: number;
+    metrics: Record<string, any>;
+    issues: Array<Record<string, any>>;
+  };
 }
 
 const isLocalDev = process.env.NODE_ENV === "development";
@@ -107,6 +114,7 @@ function getDefaultResult(url: string): ScanResult {
     runtimeErrors: [],
     spaCrashes: false,
     headlessAvailable: false,
+    seo: { score: 100, metrics: {}, issues: [] },
   };
 }
 
@@ -256,6 +264,7 @@ export async function POST(req: NextRequest) {
         runtimeErrors: [],
         spaCrashes: false,
         headlessAvailable: false,
+        seo: { score: 100, metrics: {}, issues: [] },
       };
 
       /* ── SSL Check (skip for plain HTTP) ── */
@@ -297,6 +306,27 @@ export async function POST(req: NextRequest) {
       } catch (dnsErr: any) {
         console.log(`[Scan] DNS lookup failed: ${dnsErr.message}`);
         result.dns.ip = undefined;
+      }
+
+      /* ── Domain Expiration Check ── */
+      let domainInfo = {
+        expiryDate: null as string | null,
+        daysLeft: null as number | null,
+        registrar: null as string | null,
+      };
+
+      try {
+        const whoisResult = await getDomainWhoisInfo(targetUrl);
+        domainInfo = {
+          expiryDate: whoisResult.expiryDate,
+          daysLeft: whoisResult.daysLeft,
+          registrar: whoisResult.registrar,
+        };
+        console.log(
+          `[Scan] Domain: ${domainInfo.registrar || "unknown registrar"}, expires in ${domainInfo.daysLeft} days`,
+        );
+      } catch (whoisErr: any) {
+        console.log(`[Scan] Domain check failed: ${whoisErr.message}`);
       }
 
       /* ── Fetch with manual redirect tracking + retry ── */
@@ -377,6 +407,12 @@ export async function POST(req: NextRequest) {
       const html = await response.text();
 
       result.techStack = detectTechStack(html, headers);
+      /* ── SEO Scan ── */
+      const seoResult = scanSEO(html, currentFetchUrl);
+      result.seo = seoResult;
+      console.log(
+        `[Scan] SEO score: ${seoResult.score}, issues: ${seoResult.issues.length}`,
+      );
       result.spaCrashes = detectSPACrashes(html, result.techStack);
       result.runtimeErrors = detectRuntimeErrors(html);
 
@@ -549,6 +585,18 @@ export async function POST(req: NextRequest) {
             runtimeErrors: result.runtimeErrors,
             headlessAvailable: result.headlessAvailable,
             techStack: finalTechStack,
+            // Domain expiration
+            domainExpiry: domainInfo.expiryDate,
+            domainDaysLeft: domainInfo.daysLeft,
+            domainRegistrar: domainInfo.registrar,
+            domainLastChecked: new Date().toISOString(),
+
+            // SEO monitoring
+            seoScore: result.seo.score,
+            seoLastScanned: new Date().toISOString(),
+            seoIssues: result.seo.issues,
+            seoMetrics: result.seo.metrics,
+
             scanResults: {
               timestamp: result.timestamp,
               links: result.links.list,
@@ -567,6 +615,7 @@ export async function POST(req: NextRequest) {
               runtimeErrors: result.runtimeErrors,
               spaCrashes: result.spaCrashes,
               headlessAvailable: result.headlessAvailable,
+              seo: result.seo,
             },
           });
 
@@ -649,6 +698,37 @@ export async function POST(req: NextRequest) {
           } else if (result.ssl.daysLeft < 30) {
             issues.push(`SSL expires in ${result.ssl.daysLeft} days`);
           }
+          /* ── Domain Expiry Alert ── */
+          if (domainInfo.daysLeft !== null && domainInfo.daysLeft < 30) {
+            const domainAlertMessage =
+              domainInfo.daysLeft < 0
+                ? `Domain for ${targetUrl} has EXPIRED (${Math.abs(domainInfo.daysLeft)} days ago). Renew immediately to avoid downtime.`
+                : `Domain for ${targetUrl} expires in ${domainInfo.daysLeft} days. Registrar: ${domainInfo.registrar || "Unknown"}.`;
+
+            issues.push(domainAlertMessage);
+            console.log(`[Scan] 🚨 Domain alert: ${domainAlertMessage}`);
+          }
+
+          /* ── SEO Issues ── */
+          if (result.seo.issues.length > 0) {
+            const criticalSeo = result.seo.issues.filter(
+              (i) => i.type === "critical",
+            );
+            const warningSeo = result.seo.issues.filter(
+              (i) => i.type === "warning",
+            );
+            if (criticalSeo.length > 0) {
+              issues.push(
+                `${criticalSeo.length} critical SEO issue${criticalSeo.length !== 1 ? "s" : ""}`,
+              );
+            }
+            if (warningSeo.length > 0) {
+              issues.push(
+                `${warningSeo.length} SEO warning${warningSeo.length !== 1 ? "s" : ""}`,
+              );
+            }
+          }
+
           if (result.spaCrashes) {
             issues.push("SPA crash detected");
           }

@@ -124,7 +124,37 @@ export interface Website {
   redirectChain: string[];
   scanResults?: ScanResult;
 
-  // Deep scan additions
+  // Domain expiration
+  domainExpiry?: string | null;
+  domainDaysLeft?: number | null;
+  domainRegistrar?: string | null;
+  domainLastChecked?: string | null;
+
+  // SEO monitoring
+  seoScore?: number;
+  seoLastScanned?: string;
+  seoIssues?: Array<{
+    type: "critical" | "warning" | "info";
+    category: string;
+    message: string;
+    recommendation: string;
+  }>;
+  seoMetrics?: {
+    titleLength: number;
+    metaDescriptionLength: number;
+    h1Count: number;
+    h2Count: number;
+    imageWithoutAlt: number;
+    totalImages: number;
+    internalLinks: number;
+    hasCanonical: boolean;
+    hasOpenGraph: boolean;
+    hasTwitterCard: boolean;
+    hasSchema: boolean;
+    hasViewport: boolean;
+    hasRobotsMeta: boolean;
+  };
+
   // Deep scan additions
   spaCrashes?: boolean;
   runtimeErrors?: Array<{ message: string; source?: string }>;

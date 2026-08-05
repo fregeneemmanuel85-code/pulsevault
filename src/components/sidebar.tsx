@@ -21,6 +21,8 @@ import {
   Lock,
   HelpCircle,
   Siren, // ← add
+  GlobeLock,
+  Search,
   BarChart3,
 } from "lucide-react";
 import {
@@ -58,6 +60,18 @@ const navItems = [
     plan: "business",
   },
   { label: "SSL Monitor", href: "/dashboard/ssl", icon: Shield, plan: "free" },
+  {
+    label: "Domain Monitor",
+    href: "/dashboard/domains",
+    icon: GlobeLock,
+    plan: "free",
+  },
+  {
+    label: "SEO Monitor",
+    href: "/dashboard/seo",
+    icon: Search,
+    plan: "free",
+  },
   {
     label: "Billing",
     href: "/dashboard/billing",

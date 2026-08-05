@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import DomainExpiryCard from "@/components/domains/DomainExpiryCard";
+import SEOSummaryCard from "@/components/seo/SEOSummaryCard";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -1513,6 +1515,20 @@ export default function WebsiteDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Domain Expiration */}
+        <DomainExpiryCard
+          expiry={website.domainExpiry ?? null}
+          daysLeft={website.domainDaysLeft ?? null}
+          registrar={website.domainRegistrar ?? null}
+        />
+
+        {/* SEO Score */}
+        <SEOSummaryCard
+          score={website.seoScore ?? 0}
+          issues={website.seoIssues?.length ?? 0}
+          lastScanned={website.seoLastScanned}
+        />
 
         {/* ─── TECH STACK ─── */}
         <div
