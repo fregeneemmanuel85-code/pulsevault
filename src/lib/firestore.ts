@@ -154,6 +154,11 @@ export interface Website {
     hasViewport: boolean;
     hasRobotsMeta: boolean;
   };
+  seo?: {
+    score: number;
+    metrics: Record<string, any>;
+    issues: Array<Record<string, any>>;
+  };
 
   // Deep scan additions
   spaCrashes?: boolean;
@@ -185,6 +190,11 @@ export interface ScanResult {
   runtimeErrors?: Array<{ message: string; source?: string }>;
   spaCrashes?: boolean;
   headlessAvailable?: boolean;
+  seo?: {
+    score: number;
+    metrics: Record<string, any>;
+    issues: Array<Record<string, any>>;
+  };
 }
 
 export interface Alert {

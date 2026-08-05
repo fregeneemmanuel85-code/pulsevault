@@ -140,6 +140,10 @@ export default function WebsiteDetailPage() {
             data?.headlessAvailable ??
             false;
 
+          const mergedSeo = incoming?.seo ??
+            prev?.seo ??
+            data?.seo ?? { score: 100, metrics: {}, issues: [] };
+
           return {
             ...prev,
             ...incoming,
@@ -147,6 +151,7 @@ export default function WebsiteDetailPage() {
             runtimeErrors: mergedRuntimeErrors,
             spaCrashes: mergedSpaCrashes,
             headlessAvailable: mergedHeadless,
+            seo: mergedSeo,
           } as ScanResult;
         });
       }
@@ -194,8 +199,8 @@ export default function WebsiteDetailPage() {
         runtimeErrors: result.runtimeErrors || [],
         spaCrashes: result.spaCrashes || false,
         headlessAvailable: result.headlessAvailable || false,
+        seo: result.seo || { score: 100, metrics: {}, issues: [] },
       };
-
       setScanResult(storedResult);
       justScanned.current = true;
 
@@ -232,6 +237,10 @@ export default function WebsiteDetailPage() {
               spaCrashes: result.spaCrashes,
               runtimeErrors: result.runtimeErrors,
               headlessAvailable: result.headlessAvailable,
+              seoScore: result.seo?.score,
+              seoLastScanned: new Date().toISOString(),
+              seoIssues: result.seo?.issues,
+              seoMetrics: result.seo?.metrics,
               lastChecked: new Date().toLocaleTimeString(),
             }
           : null,
@@ -267,6 +276,10 @@ export default function WebsiteDetailPage() {
         spaCrashes: result.spaCrashes,
         runtimeErrors: result.runtimeErrors,
         headlessAvailable: result.headlessAvailable,
+        seoScore: result.seo?.score,
+        seoLastScanned: new Date().toISOString(),
+        seoIssues: result.seo?.issues,
+        seoMetrics: result.seo?.metrics,
         scanResults: storedResult,
         lastChecked: new Date().toISOString(),
       };
