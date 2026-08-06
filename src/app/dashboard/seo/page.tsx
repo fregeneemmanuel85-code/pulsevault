@@ -5,16 +5,18 @@ import { getAuth } from "firebase/auth";
 import { subscribeToWebsites, type Website } from "@/lib/firestore";
 import {
   Search,
-  ArrowUpDown,
   AlertTriangle,
   CheckCircle,
   Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
 
 export default function SEOMonitorPage() {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -37,6 +39,21 @@ export default function SEOMonitorPage() {
     if (score >= 80) return "text-green-600 bg-green-50";
     if (score >= 50) return "text-yellow-600 bg-yellow-50";
     return "text-red-600 bg-red-50";
+  };
+
+  const getIssueIcon = (type: string) => {
+    if (type === "critical")
+      return <AlertTriangle size={14} className="text-red-500 shrink-0" />;
+    if (type === "warning")
+      return <Info size={14} className="text-yellow-500 shrink-0" />;
+    return <Info size={14} className="text-blue-500 shrink-0" />;
+  };
+
+  const getIssueBg = (type: string) => {
+    if (type === "critical") return "bg-red-50 border-red-100 text-red-800";
+    if (type === "warning")
+      return "bg-yellow-50 border-yellow-100 text-yellow-800";
+    return "bg-blue-50 border-blue-100 text-blue-800";
   };
 
   if (loading) {
@@ -64,7 +81,7 @@ export default function SEOMonitorPage() {
             SEO Monitor
           </h1>
           <p className="text-gray-500 mt-1">
-            On-page SEO health across all websites
+            On-page SEO health across all your websites
           </p>
         </div>
       </div>
@@ -83,49 +100,99 @@ export default function SEOMonitorPage() {
             site.seoIssues?.filter((i) => i.type === "critical").length ?? 0;
           const warnings =
             site.seoIssues?.filter((i) => i.type === "warning").length ?? 0;
-          const infos =
-            site.seoIssues?.filter((i) => i.type === "info").length ?? 0;
+          const isExpanded = expandedId === site.id;
 
           return (
-            <Link
-              key={site.id}
-              href={`/dashboard/websites/${site.id}`}
-              className="grid grid-cols-12 gap-4 p-4 border-b last:border-b-0 hover:bg-gray-50 transition-colors items-center"
-            >
-              <div className="col-span-4 min-w-0">
-                <p className="font-medium text-gray-900 truncate">
-                  {site.name}
-                </p>
-                <p className="text-xs text-gray-500 truncate">{site.url}</p>
-              </div>
-              <div className="col-span-2 text-center">
-                <span
-                  className={`inline-flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold ${getScoreColor(score)}`}
-                >
-                  {score}
-                </span>
-              </div>
-              <div className="col-span-3">
-                {critical > 0 ? (
-                  <span className="inline-flex items-center gap-1 text-red-600 text-sm font-medium">
-                    <AlertTriangle size={14} />
-                    {critical} critical
+            <div key={site.id} className="border-b last:border-b-0">
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : site.id)}
+                className="w-full grid grid-cols-12 gap-4 p-4 hover:bg-gray-50 transition-colors items-center text-left"
+              >
+                <div className="col-span-4 min-w-0 flex items-center gap-2">
+                  {isExpanded ? (
+                    <ChevronUp size={16} className="text-gray-400 shrink-0" />
+                  ) : (
+                    <ChevronDown size={16} className="text-gray-400 shrink-0" />
+                  )}
+                  <div>
+                    <p className="font-medium text-gray-900 truncate">
+                      {site.name}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{site.url}</p>
+                  </div>
+                </div>
+                <div className="col-span-2 text-center">
+                  <span
+                    className={`inline-flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold ${getScoreColor(score)}`}
+                  >
+                    {score}
                   </span>
-                ) : (
-                  <span className="text-sm text-gray-400">None</span>
+                </div>
+                <div className="col-span-3">
+                  {critical > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-red-600 text-sm font-medium">
+                      <AlertTriangle size={14} />
+                      {critical} critical
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">None</span>
+                  )}
+                </div>
+                <div className="col-span-3">
+                  {warnings > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-yellow-600 text-sm font-medium">
+                      <Info size={14} />
+                      {warnings} warnings
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">None</span>
+                  )}
+                </div>
+              </button>
+
+              {/* Expanded issue details */}
+              {isExpanded && site.seoIssues && site.seoIssues.length > 0 && (
+                <div className="px-4 pb-4 bg-gray-50/50">
+                  <div className="ml-6 space-y-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        Detected Issues
+                      </h3>
+                      <Link
+                        href={`/dashboard/websites/${site.id}`}
+                        className="text-xs text-blue-600 hover:underline font-medium"
+                      >
+                        View full report →
+                      </Link>
+                    </div>
+                    {site.seoIssues.map((issue, i) => (
+                      <div
+                        key={i}
+                        className={`flex items-start gap-2 p-3 rounded-lg border text-sm ${getIssueBg(issue.type)}`}
+                      >
+                        {getIssueIcon(issue.type)}
+                        <div className="min-w-0">
+                          <p className="font-medium">{issue.message}</p>
+                          <p className="text-xs opacity-80 mt-0.5">
+                            {issue.recommendation}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isExpanded &&
+                (!site.seoIssues || site.seoIssues.length === 0) && (
+                  <div className="px-4 pb-4 bg-gray-50/50">
+                    <div className="ml-6 p-3 text-sm text-gray-500 flex items-center gap-2">
+                      <CheckCircle size={14} className="text-green-500" />
+                      No SEO issues detected. Great job!
+                    </div>
+                  </div>
                 )}
-              </div>
-              <div className="col-span-3">
-                {warnings > 0 ? (
-                  <span className="inline-flex items-center gap-1 text-yellow-600 text-sm font-medium">
-                    <Info size={14} />
-                    {warnings} warnings
-                  </span>
-                ) : (
-                  <span className="text-sm text-gray-400">None</span>
-                )}
-              </div>
-            </Link>
+            </div>
           );
         })}
 
@@ -136,37 +203,6 @@ export default function SEOMonitorPage() {
           </div>
         )}
       </div>
-
-      {/* Detailed issues for worst-performing site */}
-      {websites.length > 0 &&
-        websites[0].seoScore !== undefined &&
-        websites[0].seoScore! < 80 && (
-          <div className="bg-white rounded-xl border p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <AlertTriangle size={18} className="text-red-500" />
-              Top Priority: {websites[0].name}
-            </h2>
-            <div className="space-y-2">
-              {websites[0].seoIssues?.map((issue, i) => (
-                <div
-                  key={i}
-                  className={`p-3 rounded-lg text-sm ${
-                    issue.type === "critical"
-                      ? "bg-red-50 text-red-700 border border-red-100"
-                      : issue.type === "warning"
-                        ? "bg-yellow-50 text-yellow-700 border border-yellow-100"
-                        : "bg-blue-50 text-blue-700 border border-blue-100"
-                  }`}
-                >
-                  <p className="font-medium">{issue.message}</p>
-                  <p className="text-xs opacity-80 mt-0.5">
-                    {issue.recommendation}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
     </div>
   );
 }

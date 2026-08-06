@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
+
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import DomainExpiryCard from "@/components/domains/DomainExpiryCard";
 import SEOSummaryCard from "@/components/seo/SEOSummaryCard";
@@ -21,7 +22,9 @@ import {
   Lock,
   ExternalLink,
   Activity,
+  Info,
   Code,
+  Search,
   Zap,
   Star,
   Cpu,
@@ -1542,6 +1545,50 @@ export default function WebsiteDetailPage() {
           issues={website.seoIssues?.length ?? 0}
           lastScanned={website.seoLastScanned}
         />
+
+        {/* SEO Issues Detail */}
+        {website.seoIssues && website.seoIssues.length > 0 && (
+          <div className="col-span-full bg-white rounded-xl border p-5 mt-2">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Search size={16} className="text-blue-600" />
+              SEO Issues ({website.seoIssues.length})
+            </h3>
+            <div className="space-y-2">
+              {website.seoIssues.map((issue, i) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-3 p-3 rounded-lg border text-sm ${
+                    issue.type === "critical"
+                      ? "bg-red-50 border-red-100 text-red-800"
+                      : issue.type === "warning"
+                        ? "bg-yellow-50 border-yellow-100 text-yellow-800"
+                        : "bg-blue-50 border-blue-100 text-blue-800"
+                  }`}
+                >
+                  {issue.type === "critical" ? (
+                    <AlertTriangle
+                      size={16}
+                      className="text-red-500 shrink-0 mt-0.5"
+                    />
+                  ) : issue.type === "warning" ? (
+                    <AlertTriangle
+                      size={16}
+                      className="text-yellow-500 shrink-0 mt-0.5"
+                    />
+                  ) : (
+                    <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                  )}
+                  <div>
+                    <p className="font-medium">{issue.message}</p>
+                    <p className="text-xs opacity-80 mt-0.5">
+                      {issue.recommendation}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ─── TECH STACK ─── */}
         <div
