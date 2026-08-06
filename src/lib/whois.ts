@@ -14,6 +14,8 @@ const PLATFORM_DOMAINS: Record<string, string> = {
   "pages.dev": "Cloudflare Pages",
   "onrender.com": "Render",
   "railway.app": "Railway",
+  "hostinger.com": "Hostinger",
+  "000webhostapp.com": "Hostinger",
 };
 
 function getRootDomain(hostname: string): string {
@@ -51,11 +53,13 @@ export async function getDomainWhoisInfo(
 ): Promise<DomainWhoisInfo> {
   try {
     const hostname = new URL(rawUrl).hostname;
+    console.log(`[WHOIS-DEBUG] ====== START: ${hostname} ======`);
 
     // Platform subdomains
     for (let i = 0; i < hostname.split(".").length - 1; i++) {
       const domain = hostname.split(".").slice(i).join(".");
       if (PLATFORM_DOMAINS[domain]) {
+        console.log(`[WHOIS-DEBUG] ✅ Platform: ${PLATFORM_DOMAINS[domain]}`);
         return {
           expiryDate: null,
           daysLeft: null,
@@ -66,20 +70,38 @@ export async function getDomainWhoisInfo(
 
     const rootDomain = getRootDomain(hostname);
     const apiKey = process.env.WHOIS_API_KEY;
+    console.log(`[WHOIS-DEBUG] Root domain: ${rootDomain}`);
+    console.log(
+      `[WHOIS-DEBUG] API Key present: ${apiKey ? "YES (" + apiKey.slice(0, 8) + "...)" : "NO"}`,
+    );
 
-    // If API key exists, use whoisxmlapi (most reliable)
+    // If API key exists, use whoisxmlapi
     if (apiKey) {
+      const apiUrl = `https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${apiKey}&domainName=${rootDomain}&outputFormat=JSON`;
+      console.log(`[WHOIS-DEBUG] Calling whoisxmlapi...`);
+
       try {
-        const res = await fetchWithTimeout(
-          `https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${apiKey}&domainName=${rootDomain}&outputFormat=JSON`,
-          10000,
+        const res = await fetchWithTimeout(apiUrl, 10000);
+        console.log(`[WHOIS-DEBUG] whoisxmlapi status: ${res.status}`);
+
+        const data = await res.json();
+        console.log(
+          `[WHOIS-DEBUG] whoisxmlapi response keys:`,
+          Object.keys(data),
         );
-        if (res.ok) {
-          const data = await res.json();
+
+        if (data.WhoisRecord) {
+          console.log(
+            `[WHOIS-DEBUG] WhoisRecord keys:`,
+            Object.keys(data.WhoisRecord),
+          );
+
           const expiryStr =
-            data.WhoisRecord?.registryData?.expiresDate ||
-            data.WhoisRecord?.expiresDate ||
-            data.WhoisRecord?.estimatedDomainAge;
+            data.WhoisRecord.expiresDate ||
+            data.WhoisRecord.registryData?.expiresDate ||
+            data.WhoisRecord.estimatedDomainAge;
+
+          console.log(`[WHOIS-DEBUG] Found expiry string: ${expiryStr}`);
 
           if (expiryStr) {
             const expiryDate = new Date(expiryStr);
@@ -87,33 +109,47 @@ export async function getDomainWhoisInfo(
             const daysLeft = Math.ceil(
               (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
             );
+
+            const registrar =
+              data.WhoisRecord.registrarName ||
+              data.WhoisRecord.registryData?.registrarName ||
+              null;
+
+            console.log(
+              `[WHOIS-DEBUG] ✅ SUCCESS: ${daysLeft} days, registrar: ${registrar}`,
+            );
             return {
               expiryDate: expiryDate.toISOString(),
               daysLeft,
-              registrar:
-                data.WhoisRecord?.registrarName ||
-                data.WhoisRecord?.registryData?.registrarName ||
-                null,
+              registrar,
             };
           }
+        } else {
+          console.log(`[WHOIS-DEBUG] No WhoisRecord in response`);
         }
       } catch (e: any) {
-        console.log(`[WHOIS] whoisxmlapi failed: ${e.message}`);
+        console.log(`[WHOIS-DEBUG] whoisxmlapi error: ${e.message}`);
       }
     }
 
-    // Fallback: HackerTarget (no key)
+    // Fallback: HackerTarget
+    console.log(`[WHOIS-DEBUG] Trying HackerTarget fallback...`);
     try {
       const res = await fetchWithTimeout(
         `https://api.hackertarget.com/whois/?q=${rootDomain}`,
         8000,
       );
+      console.log(`[WHOIS-DEBUG] HackerTarget status: ${res.status}`);
+
       if (res.ok) {
         const text = await res.text();
+        console.log(`[WHOIS-DEBUG] HackerTarget length: ${text.length}`);
+
         const expiryMatch = text.match(
           /(?:Expiration Date|Registry Expiry Date)[:\s]+([^\n\r]+)/i,
         );
         const registrarMatch = text.match(/Registrar[:\s]+([^\n\r]+)/i);
+
         if (expiryMatch?.[1]) {
           const date = new Date(expiryMatch[1].trim());
           if (!isNaN(date.getTime())) {
@@ -121,6 +157,7 @@ export async function getDomainWhoisInfo(
             const daysLeft = Math.ceil(
               (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
             );
+            console.log(`[WHOIS-DEBUG] ✅ HackerTarget: ${daysLeft} days`);
             return {
               expiryDate: date.toISOString(),
               daysLeft,
@@ -129,11 +166,14 @@ export async function getDomainWhoisInfo(
           }
         }
       }
-    } catch {}
+    } catch (e: any) {
+      console.log(`[WHOIS-DEBUG] HackerTarget error: ${e.message}`);
+    }
 
+    console.log(`[WHOIS-DEBUG] ❌ ALL FAILED for ${rootDomain}`);
     return { expiryDate: null, daysLeft: null, registrar: null };
   } catch (error: any) {
-    console.error(`[WHOIS] Error:`, error.message);
+    console.error(`[WHOIS-DEBUG] FATAL:`, error.message);
     return { expiryDate: null, daysLeft: null, registrar: null };
   }
 }
