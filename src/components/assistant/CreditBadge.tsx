@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { Zap } from "lucide-react";
 
-export default function CreditBadge() {
+interface Props {
+  refreshKey?: number;
+}
+
+export default function CreditBadge({ refreshKey }: Props) {
   const [credits, setCredits] = useState<{
     dailyLimit: number;
     remaining: number;
@@ -16,7 +20,7 @@ export default function CreditBadge() {
         if (data.dailyLimit) setCredits(data);
       })
       .catch(() => null);
-  }, []);
+  }, [refreshKey]);
 
   if (!credits) return null;
 

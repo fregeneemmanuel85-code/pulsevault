@@ -108,7 +108,7 @@ export default function ChatWidget() {
               <span className="font-semibold text-sm">PV Assistant</span>
             </div>
             <div className="flex items-center gap-2">
-              <CreditBadge />
+              <CreditBadge refreshKey={messages.length} />
               <button
                 onClick={() => setOpen(false)}
                 className="hover:bg-white/20 p-1.5 rounded transition-colors"
