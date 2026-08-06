@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { Check, CreditCard, Loader2 } from "lucide-react";
+import { Check, CreditCard, Loader2, Sparkles } from "lucide-react";
 import {
   subscribeToUserPlan,
   setUserPlan,
@@ -22,6 +22,7 @@ interface PlanOption {
   interval: string;
   websites: number;
   checkInterval: string;
+  aiCredits: number;
   features: string[];
 }
 
@@ -34,17 +35,21 @@ const plans: PlanOption[] = [
     interval: "",
     websites: 2,
     checkInterval: "30 minutes",
+    aiCredits: 100,
     features: [
       "2 websites monitoring",
       "30-minute check interval",
       "Uptime monitoring",
       "SSL certificate monitoring",
       "DNS monitoring",
+      "SEO monitoring",
+      "Domain expiration monitoring",
       "API health checks",
       "Form validation checks",
       "JavaScript error detection",
       "Plugin failure detection",
       "HTTP 4xx/5xx detection",
+      "AI Assistant: 100 credits/day",
       "In-app alerts only",
       "Basic dashboard",
       "Basic incident logs",
@@ -58,13 +63,16 @@ const plans: PlanOption[] = [
     interval: "/month",
     websites: 5,
     checkInterval: "15 minutes",
+    aiCredits: 500,
     features: [
       "5 websites monitoring",
       "15-minute check interval",
       "All Free features",
-      "SSL certificate monitoring",
+      "SEO monitoring",
+      "Domain expiration monitoring",
       "Email alerts",
       "Daily/weekly summaries",
+      "AI Assistant: 500 credits/day",
       "Standard dashboard",
       "Incident history tracking",
     ],
@@ -77,16 +85,18 @@ const plans: PlanOption[] = [
     interval: "/month",
     websites: 30,
     checkInterval: "5 minutes",
+    aiCredits: 1000,
     features: [
       "30 websites monitoring",
       "5-minute check interval",
       "All Starter features",
-      "SSL certificate monitoring",
       "Health score tracking (0-100)",
       "Downtime history",
       "Error trends",
       "Performance insights",
       "Priority monitoring queue",
+      "AI Assistant: 1,000 credits/day",
+      "Priority AI queue",
       "Faster detection",
     ],
   },
@@ -98,13 +108,15 @@ const plans: PlanOption[] = [
     interval: "/month",
     websites: 100,
     checkInterval: "1 minute",
+    aiCredits: 10000,
     features: [
       "100 websites monitoring",
       "1-minute check interval",
       "All Pro features",
-      "SSL certificate monitoring",
-      "Priority monitoring queue",
       "Advanced reporting",
+      "AI Assistant: 10,000 credits/day",
+      "Priority AI queue",
+      "White Label (Coming Soon)",
     ],
   },
 ];
@@ -340,6 +352,8 @@ export default function BillingPage() {
         percent: Math.round((websiteCount / currentPlan.websites) * 100),
         checkInterval: currentPlan.checkInterval + " minutes",
         price: currentPlan.price,
+        aiCredits:
+          plans.find((p) => p.id === currentPlan.planId)?.aiCredits || 100,
       }
     : {
         used: websiteCount,
@@ -347,6 +361,7 @@ export default function BillingPage() {
         percent: Math.round((websiteCount / 2) * 100),
         checkInterval: "30 minutes",
         price: 0,
+        aiCredits: 100,
       };
 
   if (loading || !authReady) {
@@ -492,6 +507,11 @@ export default function BillingPage() {
             },
             { label: "Check Interval", value: planUsage.checkInterval },
             {
+              label: "AI Credits",
+              value: `${planUsage.aiCredits.toLocaleString()}/day`,
+              icon: <Sparkles size={12} style={{ color: "#f59e0b" }} />,
+            },
+            {
               label: "Price",
               value: `NGN ${planUsage.price.toLocaleString()}`,
               suffix: "/mo",
@@ -504,8 +524,12 @@ export default function BillingPage() {
                   color: "#94a3b8",
                   textTransform: "uppercase",
                   fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
                 }}
               >
+                {item.icon}
                 {item.label}
               </p>
               <p
@@ -590,6 +614,25 @@ export default function BillingPage() {
                 </span>
               )}
 
+              {plan.id === "business" && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "-0.625rem",
+                    left: "clamp(0.75rem, 2vw, 1rem)",
+                    fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                    fontWeight: "600",
+                    padding: "0.25rem 0.75rem",
+                    borderRadius: "9999px",
+                    backgroundColor: "#f59e0b",
+                    color: "white",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Coming Soon
+                </span>
+              )}
+
               <h3
                 style={{
                   fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
@@ -634,7 +677,8 @@ export default function BillingPage() {
                   marginTop: "0.25rem",
                 }}
               >
-                {plan.websites} websites · {plan.checkInterval} checks
+                {plan.websites} websites · {plan.checkInterval} checks ·{" "}
+                {plan.aiCredits.toLocaleString()} AI credits
               </p>
 
               <ul

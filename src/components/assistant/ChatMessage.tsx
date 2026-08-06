@@ -10,6 +10,23 @@ interface Props {
 export default function ChatMessage({ role, text, source, creditCost }: Props) {
   const isUser = role === "user";
 
+  const getSourceLabel = () => {
+    if (source === "knowledge-base") {
+      return (
+        <>
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+          <span>Instant (0 credits)</span>
+        </>
+      );
+    }
+    return (
+      <>
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+        <span>PV Assistant{creditCost ? ` (${creditCost} cr)` : ""}</span>
+      </>
+    );
+  };
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
       <div
@@ -23,24 +40,7 @@ export default function ChatMessage({ role, text, source, creditCost }: Props) {
 
         {!isUser && source && (
           <div className="mt-2 flex items-center gap-2 text-xs opacity-70">
-            {source === "knowledge-base" && (
-              <>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
-                <span>Instant (0 credits)</span>
-              </>
-            )}
-            {source === "gemini" && (
-              <>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-500" />
-                <span>Gemini {creditCost ? `(${creditCost} cr)` : ""}</span>
-              </>
-            )}
-            {source === "groq" && (
-              <>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500" />
-                <span>Groq {creditCost ? `(${creditCost} cr)` : ""}</span>
-              </>
-            )}
+            {getSourceLabel()}
           </div>
         )}
       </div>

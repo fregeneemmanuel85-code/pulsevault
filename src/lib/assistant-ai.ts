@@ -27,6 +27,23 @@ export interface AIResponse {
   error?: string;
 }
 
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs = 8000,
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: ctrl.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
 export async function askGemini(
   context: string,
   userMessage: string,
@@ -36,7 +53,7 @@ export async function askGemini(
   }
 
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
@@ -58,6 +75,7 @@ export async function askGemini(
           },
         }),
       },
+      8000,
     );
 
     if (!res.ok) {
@@ -74,6 +92,10 @@ export async function askGemini(
 
     return { text, source: "gemini" };
   } catch (err: any) {
+    if (err.name === "AbortError") {
+      console.error("[AI] Gemini timed out");
+      return { text: "", source: "none", error: "Gemini timed out" };
+    }
     console.error("[AI] Gemini failed:", err.message);
     return { text: "", source: "none", error: err.message };
   }
@@ -88,25 +110,29 @@ export async function askGroq(
   }
 
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+    const res = await fetchWithTimeout(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            {
+              role: "user",
+              content: `${context}\n\nUser question: ${userMessage}`,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 1024,
+        }),
       },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `${context}\n\nUser question: ${userMessage}`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 1024,
-      }),
-    });
+      8000,
+    );
 
     if (!res.ok) {
       const errText = await res.text();
@@ -122,6 +148,10 @@ export async function askGroq(
 
     return { text, source: "groq" };
   } catch (err: any) {
+    if (err.name === "AbortError") {
+      console.error("[AI] Groq timed out");
+      return { text: "", source: "none", error: "Groq timed out" };
+    }
     console.error("[AI] Groq failed:", err.message);
     return { text: "", source: "none", error: err.message };
   }

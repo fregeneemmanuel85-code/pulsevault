@@ -23,6 +23,7 @@ export default function ChatWidget() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,12 +48,21 @@ export default function ChatWidget() {
         body: JSON.stringify({ message: text }),
       });
 
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        data = { error: "Server returned invalid JSON" };
+      }
 
-      if (data.error) {
+      if (!res.ok || data.error) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", text: data.error, source: "gemini" },
+          {
+            role: "assistant",
+            text: data.error || `Server error (${res.status})`,
+            source: "gemini",
+          },
         ]);
       } else {
         setMessages((prev) => [
@@ -64,13 +74,14 @@ export default function ChatWidget() {
             creditCost: data.creditsUsed,
           },
         ]);
+        setRefreshKey((k) => k + 1);
       }
-    } catch {
+    } catch (err: any) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: "Something went wrong. Please try again.",
+          text: `Network error: ${err.message || "Could not reach server"}`,
           source: "gemini",
         },
       ]);
@@ -108,7 +119,7 @@ export default function ChatWidget() {
               <span className="font-semibold text-sm">PV Assistant</span>
             </div>
             <div className="flex items-center gap-2">
-              <CreditBadge refreshKey={messages.length} />
+              <CreditBadge refreshKey={refreshKey} />
               <button
                 onClick={() => setOpen(false)}
                 className="hover:bg-white/20 p-1.5 rounded transition-colors"
