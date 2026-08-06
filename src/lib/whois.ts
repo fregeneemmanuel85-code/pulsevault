@@ -38,6 +38,14 @@ function getRootDomain(hostname: string): string {
   return parts.slice(-2).join(".");
 }
 
+function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() =>
+    clearTimeout(timeout),
+  );
+}
+
 export async function getDomainWhoisInfo(
   rawUrl: string,
 ): Promise<DomainWhoisInfo> {
@@ -57,46 +65,48 @@ export async function getDomainWhoisInfo(
     }
 
     const rootDomain = getRootDomain(hostname);
+    const apiKey = process.env.WHOIS_API_KEY;
 
-    // RDAP (official ICANN protocol)
-    try {
-      const res = await fetch(`https://rdap.org/domain/${rootDomain}`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const events = data.events || [];
-        const expiryEvent = events.find((e: any) =>
-          e.eventAction?.toLowerCase().includes("expiration"),
+    // If API key exists, use whoisxmlapi (most reliable)
+    if (apiKey) {
+      try {
+        const res = await fetchWithTimeout(
+          `https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${apiKey}&domainName=${rootDomain}&outputFormat=JSON`,
+          10000,
         );
-        if (expiryEvent?.eventDate) {
-          const expiryDate = new Date(expiryEvent.eventDate);
-          const now = new Date();
-          const daysLeft = Math.ceil(
-            (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-          );
+        if (res.ok) {
+          const data = await res.json();
+          const expiryStr =
+            data.WhoisRecord?.registryData?.expiresDate ||
+            data.WhoisRecord?.expiresDate ||
+            data.WhoisRecord?.estimatedDomainAge;
 
-          let registrar = null;
-          const entities = data.entities || [];
-          for (const entity of entities) {
-            if (entity.roles?.includes("registrar") && entity.vcardArray?.[1]) {
-              for (const item of entity.vcardArray[1]) {
-                if (item[0] === "fn") registrar = item[3];
-              }
-            }
+          if (expiryStr) {
+            const expiryDate = new Date(expiryStr);
+            const now = new Date();
+            const daysLeft = Math.ceil(
+              (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+            );
+            return {
+              expiryDate: expiryDate.toISOString(),
+              daysLeft,
+              registrar:
+                data.WhoisRecord?.registrarName ||
+                data.WhoisRecord?.registryData?.registrarName ||
+                null,
+            };
           }
-          return { expiryDate: expiryDate.toISOString(), daysLeft, registrar };
         }
+      } catch (e: any) {
+        console.log(`[WHOIS] whoisxmlapi failed: ${e.message}`);
       }
-    } catch {}
+    }
 
-    // HackerTarget fallback
+    // Fallback: HackerTarget (no key)
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://api.hackertarget.com/whois/?q=${rootDomain}`,
-        {
-          signal: AbortSignal.timeout(8000),
-        },
+        8000,
       );
       if (res.ok) {
         const text = await res.text();
@@ -122,7 +132,8 @@ export async function getDomainWhoisInfo(
     } catch {}
 
     return { expiryDate: null, daysLeft: null, registrar: null };
-  } catch {
+  } catch (error: any) {
+    console.error(`[WHOIS] Error:`, error.message);
     return { expiryDate: null, daysLeft: null, registrar: null };
   }
 }
