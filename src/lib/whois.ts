@@ -14,9 +14,6 @@ const PLATFORM_DOMAINS: Record<string, string> = {
   "pages.dev": "Cloudflare Pages",
   "onrender.com": "Render",
   "railway.app": "Railway",
-  "surge.sh": "Surge",
-  "glitch.me": "Glitch",
-  "repl.co": "Replit",
 };
 
 function getRootDomain(hostname: string): string {
@@ -49,18 +46,24 @@ function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
   );
 }
 
+function parseDate(str: string): Date | null {
+  const cleaned = str.trim().replace(/T.+$/, "");
+  const d = new Date(cleaned);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export async function getDomainWhoisInfo(
   rawUrl: string,
 ): Promise<DomainWhoisInfo> {
   try {
     const hostname = new URL(rawUrl).hostname;
-    console.log(`[WHOIS] Starting lookup for: ${hostname}`);
+    console.log(`[WHOIS] ====== START: ${hostname} ======`);
 
     // 1. Platform subdomains
     for (let i = 0; i < hostname.split(".").length - 1; i++) {
       const domain = hostname.split(".").slice(i).join(".");
       if (PLATFORM_DOMAINS[domain]) {
-        console.log(`[WHOIS] ✅ Platform match: ${PLATFORM_DOMAINS[domain]}`);
+        console.log(`[WHOIS] ✅ Platform: ${PLATFORM_DOMAINS[domain]}`);
         return {
           expiryDate: null,
           daysLeft: null,
@@ -70,143 +73,118 @@ export async function getDomainWhoisInfo(
     }
 
     const rootDomain = getRootDomain(hostname);
-    console.log(`[WHOIS] Root domain: ${rootDomain}`);
+    console.log(`[WHOIS] Root: ${rootDomain}`);
 
-    // 2. RDAP (official ICANN protocol - most reliable)
-    try {
-      console.log(`[WHOIS] Trying RDAP...`);
-      const res = await fetchWithTimeout(
-        `https://rdap.org/domain/${rootDomain}`,
-        10000,
-      );
-      console.log(`[WHOIS] RDAP status: ${res.status}`);
+    // 2. Try 3 APIs in parallel
+    const apis = [
+      {
+        name: "HackerTarget",
+        url: `https://api.hackertarget.com/whois/?q=${rootDomain}`,
+        parser: async (res: Response) => {
+          const text = await res.text();
+          console.log(`[WHOIS] HackerTarget raw length: ${text.length}`);
+          if (text.toLowerCase().includes("error") || text.length < 50)
+            return null;
 
-      if (res.ok) {
-        const data = await res.json();
-        console.log(`[WHOIS] RDAP response keys:`, Object.keys(data));
+          const expiryMatch = text.match(
+            /(?:Expiration Date|Registry Expiry Date|Expires On|paid-till)[:\s]+([^\n\r]+)/i,
+          );
+          const registrarMatch = text.match(/Registrar[:\s]+([^\n\r]+)/i);
 
-        // Find expiration event
-        const events = data.events || [];
-        const expiryEvent = events.find(
-          (e: any) =>
-            e.eventAction?.toLowerCase().includes("expiration") ||
-            e.eventAction?.toLowerCase().includes("expiry"),
-        );
+          if (!expiryMatch) return null;
+          const date = parseDate(expiryMatch[1]);
+          if (!date) return null;
 
-        if (expiryEvent?.eventDate) {
-          const expiryDate = new Date(expiryEvent.eventDate);
           const now = new Date();
           const daysLeft = Math.ceil(
-            (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+            (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
           );
-
-          // Find registrar from entities
-          let registrar = null;
-          const entities = data.entities || [];
-          for (const entity of entities) {
-            if (entity.roles?.includes("registrar") && entity.vcardArray) {
-              const vcard = entity.vcardArray[1];
-              for (const item of vcard) {
-                if (item[0] === "fn") {
-                  registrar = item[3];
-                  break;
-                }
-              }
-            }
-          }
-
-          console.log(`[WHOIS] ✅ RDAP success: ${daysLeft} days left`);
           return {
-            expiryDate: expiryDate.toISOString(),
+            expiryDate: date.toISOString(),
             daysLeft,
-            registrar,
+            registrar: registrarMatch ? registrarMatch[1].trim() : null,
           };
-        }
-      }
-    } catch (e: any) {
-      console.log(`[WHOIS] RDAP failed: ${e.message}`);
-    }
-
-    // 3. HackerTarget fallback
-    try {
-      console.log(`[WHOIS] Trying HackerTarget...`);
-      const res = await fetchWithTimeout(
-        `https://api.hackertarget.com/whois/?q=${rootDomain}`,
-        10000,
-      );
-      console.log(`[WHOIS] HackerTarget status: ${res.status}`);
-
-      if (res.ok) {
-        const text = await res.text();
-        console.log(`[WHOIS] HackerTarget response length: ${text.length}`);
-
-        if (!text.toLowerCase().includes("error") && text.length > 50) {
-          const patterns = [
-            /(?:Registry Expiry Date|Expiration Date|Expires On|Expiry Date|expire-date|paid-till|Valid Until)[:\s]+([^\n\r]+)/i,
-            /(?:Registrar Registration Expiration Date)[:\s]+([^\n\r]+)/i,
-          ];
-
-          for (const pattern of patterns) {
-            const match = text.match(pattern);
-            if (match && match[1]) {
-              const dateStr = match[1].trim();
-              const date = new Date(dateStr);
-              if (!isNaN(date.getTime())) {
-                const now = new Date();
-                const daysLeft = Math.ceil(
-                  (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-                );
-                const registrarMatch = text.match(/Registrar[:\s]+([^\n\r]+)/i);
-                console.log(
-                  `[WHOIS] ✅ HackerTarget success: ${daysLeft} days left`,
-                );
-                return {
-                  expiryDate: date.toISOString(),
-                  daysLeft,
-                  registrar: registrarMatch ? registrarMatch[1].trim() : null,
-                };
-              }
-            }
-          }
-        }
-      }
-    } catch (e: any) {
-      console.log(`[WHOIS] HackerTarget failed: ${e.message}`);
-    }
-
-    // 4. ip2whois fallback
-    try {
-      console.log(`[WHOIS] Trying ip2whois...`);
-      const res = await fetchWithTimeout(
-        `https://api.ip2whois.com/v2?key=FREE&domain=${rootDomain}`,
-        8000,
-      );
-      console.log(`[WHOIS] ip2whois status: ${res.status}`);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.expire_date) {
-          const expiryDate = new Date(data.expire_date);
+        },
+      },
+      {
+        name: "ip2whois",
+        url: `https://api.ip2whois.com/v2?key=FREE&domain=${rootDomain}`,
+        parser: async (res: Response) => {
+          const data = await res.json();
+          console.log(`[WHOIS] ip2whois keys:`, Object.keys(data));
+          if (!data.expire_date) return null;
+          const date = new Date(data.expire_date);
+          if (isNaN(date.getTime())) return null;
           const now = new Date();
           const daysLeft = Math.ceil(
-            (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+            (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
           );
-          console.log(`[WHOIS] ✅ ip2whois success: ${daysLeft} days left`);
           return {
-            expiryDate: expiryDate.toISOString(),
+            expiryDate: date.toISOString(),
             daysLeft,
             registrar: data.registrar?.name || null,
           };
+        },
+      },
+      {
+        name: "whoisfreaks",
+        url: `https://api.whoisfreaks.com/v1.0/whois?whois=live&domainName=${rootDomain}`,
+        parser: async (res: Response) => {
+          const data = await res.json();
+          console.log(`[WHOIS] whoisfreaks keys:`, Object.keys(data));
+          const expiryStr =
+            data.expiration_date || data.registry_expiry_date || data.expires;
+          if (!expiryStr) return null;
+          const date = new Date(expiryStr);
+          if (isNaN(date.getTime())) return null;
+          const now = new Date();
+          const daysLeft = Math.ceil(
+            (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          return {
+            expiryDate: date.toISOString(),
+            daysLeft,
+            registrar: data.registrar_name || data.registrar || null,
+          };
+        },
+      },
+    ];
+
+    // Fire all 3 at once
+    const results = await Promise.allSettled(
+      apis.map(async (api) => {
+        try {
+          console.log(`[WHOIS] Trying ${api.name}...`);
+          const res = await fetchWithTimeout(api.url, 8000);
+          console.log(`[WHOIS] ${api.name} status: ${res.status}`);
+          if (!res.ok) return null;
+          const parsed = await api.parser(res);
+          if (parsed) {
+            console.log(
+              `[WHOIS] ✅ ${api.name} SUCCESS: ${parsed.daysLeft} days`,
+            );
+            return parsed;
+          }
+          console.log(`[WHOIS] ${api.name} parse failed`);
+          return null;
+        } catch (e: any) {
+          console.log(`[WHOIS] ${api.name} error: ${e.message}`);
+          return null;
         }
+      }),
+    );
+
+    // Return first success
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) {
+        return r.value;
       }
-    } catch (e: any) {
-      console.log(`[WHOIS] ip2whois failed: ${e.message}`);
     }
 
-    console.log(`[WHOIS] ❌ All methods failed for ${rootDomain}`);
+    console.log(`[WHOIS] ❌ ALL APIs FAILED for ${rootDomain}`);
     return { expiryDate: null, daysLeft: null, registrar: null };
   } catch (error: any) {
-    console.error(`[WHOIS] Fatal error for ${rawUrl}:`, error.message);
+    console.error(`[WHOIS] FATAL:`, error.message);
     return { expiryDate: null, daysLeft: null, registrar: null };
   }
 }
