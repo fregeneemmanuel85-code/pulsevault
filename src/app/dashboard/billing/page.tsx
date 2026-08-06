@@ -116,7 +116,7 @@ const plans: PlanOption[] = [
       "Advanced reporting",
       "AI Assistant: 10,000 credits/day",
       "Priority AI queue",
-      "White Label (Coming Soon)",
+      "White Label",
     ],
   },
 ];
@@ -614,25 +614,6 @@ export default function BillingPage() {
                 </span>
               )}
 
-              {plan.id === "business" && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-0.625rem",
-                    left: "clamp(0.75rem, 2vw, 1rem)",
-                    fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
-                    fontWeight: "600",
-                    padding: "0.25rem 0.75rem",
-                    borderRadius: "9999px",
-                    backgroundColor: "#f59e0b",
-                    color: "white",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Coming Soon
-                </span>
-              )}
-
               <h3
                 style={{
                   fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
@@ -692,29 +673,56 @@ export default function BillingPage() {
                   padding: 0,
                 }}
               >
-                {plan.features.map((f) => (
-                  <li
-                    key={f}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "0.5rem",
-                      fontSize: "clamp(0.75rem, 2vw, 0.8125rem)",
-                      color: "#475569",
-                    }}
-                  >
-                    <Check
+                {plan.features.map((f) => {
+                  const isComingSoon = f === "White Label";
+                  return (
+                    <li
+                      key={f}
                       style={{
-                        width: "clamp(0.75rem, 2vw, 0.875rem)",
-                        height: "clamp(0.75rem, 2vw, 0.875rem)",
-                        color: "#22c55e",
-                        flexShrink: 0,
-                        marginTop: "0.125rem",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "0.5rem",
+                        fontSize: "clamp(0.75rem, 2vw, 0.8125rem)",
+                        color: "#475569",
                       }}
-                    />
-                    {f}
-                  </li>
-                ))}
+                    >
+                      <Check
+                        style={{
+                          width: "clamp(0.75rem, 2vw, 0.875rem)",
+                          height: "clamp(0.75rem, 2vw, 0.875rem)",
+                          color: "#22c55e",
+                          flexShrink: 0,
+                          marginTop: "0.125rem",
+                        }}
+                      />
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.375rem",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        {f}
+                        {isComingSoon && (
+                          <span
+                            style={{
+                              fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                              fontWeight: "600",
+                              padding: "0.125rem 0.5rem",
+                              borderRadius: "9999px",
+                              backgroundColor: "#fef3c7",
+                              color: "#b45309",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Coming Soon
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
 
               <button
