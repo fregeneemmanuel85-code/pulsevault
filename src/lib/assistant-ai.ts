@@ -37,7 +37,7 @@ export async function askGemini(
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,7 +95,7 @@ export async function askGroq(
         Authorization: `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-70b-versatile",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -131,6 +131,14 @@ export async function askAIWithFallback(
   context: string,
   userMessage: string,
 ): Promise<AIResponse> {
+  if (!GEMINI_API_KEY && !GROQ_API_KEY) {
+    return {
+      text: "AI is not configured. Please add GEMINI_API_KEY and GROQ_API_KEY to your environment variables.",
+      source: "none",
+      error: "No API keys configured",
+    };
+  }
+
   // Try Gemini first
   const gemini = await askGemini(context, userMessage);
   if (gemini.text && !gemini.error) {
@@ -146,7 +154,7 @@ export async function askAIWithFallback(
 
   // Both failed
   return {
-    text: "I'm having trouble connecting to my AI providers right now. Please try again in a moment.",
+    text: `AI providers are down. Gemini: ${gemini.error || "OK"} | Groq: ${groq.error || "OK"}`,
     source: "none",
     error: gemini.error || groq.error || "Both providers failed",
   };
