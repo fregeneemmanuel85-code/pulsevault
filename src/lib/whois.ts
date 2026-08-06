@@ -4,30 +4,23 @@ export interface DomainWhoisInfo {
   registrar: string | null;
 }
 
-// Platform-managed domains — no WHOIS expiry
 const PLATFORM_DOMAINS: Record<string, string> = {
   "netlify.app": "Netlify",
   "vercel.app": "Vercel",
   "github.io": "GitHub Pages",
-  "gitlab.io": "GitLab Pages",
   "herokuapp.com": "Heroku",
-  "firebaseapp.com": "Firebase Hosting",
-  "web.app": "Firebase Hosting",
-  "surge.sh": "Surge",
-  "render.com": "Render",
+  "firebaseapp.com": "Firebase",
+  "web.app": "Firebase",
+  "pages.dev": "Cloudflare Pages",
   "onrender.com": "Render",
   "railway.app": "Railway",
+  "surge.sh": "Surge",
   "glitch.me": "Glitch",
-  "repl.co": "Replit",
-  "pages.dev": "Cloudflare Pages",
-  "deno.dev": "Deno Deploy",
-  "fly.dev": "Fly.io",
 };
 
 function getRootDomain(hostname: string): string {
   const parts = hostname.replace(/^www\./, "").split(".");
   if (parts.length <= 2) return parts.join(".");
-
   const twoPartTlds = [
     "co",
     "com",
@@ -90,13 +83,10 @@ export async function getDomainWhoisInfo(
   try {
     const hostname = new URL(rawUrl).hostname;
 
-    // 1. Check platform subdomains
+    // 1. Platform subdomains (Netlify, Vercel, etc.)
     for (let i = 0; i < hostname.split(".").length - 1; i++) {
       const domain = hostname.split(".").slice(i).join(".");
       if (PLATFORM_DOMAINS[domain]) {
-        console.log(
-          `[WHOIS] Platform detected: ${hostname} → ${PLATFORM_DOMAINS[domain]}`,
-        );
         return {
           expiryDate: null,
           daysLeft: null,
@@ -106,9 +96,8 @@ export async function getDomainWhoisInfo(
     }
 
     const rootDomain = getRootDomain(hostname);
-    console.log(`[WHOIS] Looking up custom domain: ${rootDomain}`);
 
-    // Method 1: HackerTarget raw WHOIS (no key, most reliable)
+    // 2. HackerTarget raw WHOIS
     try {
       const res = await fetchWithTimeout(
         `https://api.hackertarget.com/whois/?q=${rootDomain}`,
@@ -124,9 +113,6 @@ export async function getDomainWhoisInfo(
             const daysLeft = Math.ceil(
               (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
             );
-            console.log(
-              `[WHOIS] ✅ ${rootDomain}: ${daysLeft} days left via HackerTarget`,
-            );
             return {
               expiryDate: parsed.expiry,
               daysLeft,
@@ -139,7 +125,7 @@ export async function getDomainWhoisInfo(
       console.log(`[WHOIS] HackerTarget failed: ${e.message}`);
     }
 
-    // Method 2: ip2whois free tier
+    // 3. ip2whois fallback
     try {
       const res = await fetchWithTimeout(
         `https://api.ip2whois.com/v2?key=FREE&domain=${rootDomain}`,
@@ -153,9 +139,6 @@ export async function getDomainWhoisInfo(
           const daysLeft = Math.ceil(
             (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
           );
-          console.log(
-            `[WHOIS] ✅ ${rootDomain}: ${daysLeft} days left via ip2whois`,
-          );
           return {
             expiryDate: expiryDate.toISOString(),
             daysLeft,
@@ -167,37 +150,6 @@ export async function getDomainWhoisInfo(
       console.log(`[WHOIS] ip2whois failed: ${e.message}`);
     }
 
-    // Method 3: whoisfreaks
-    try {
-      const res = await fetchWithTimeout(
-        `https://api.whoisfreaks.com/v1.0/whois?whois=live&domainName=${rootDomain}`,
-        8000,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const expiryStr =
-          data.expiration_date || data.registry_expiry_date || data.expires;
-        if (expiryStr) {
-          const expiryDate = new Date(expiryStr);
-          const now = new Date();
-          const daysLeft = Math.ceil(
-            (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          console.log(
-            `[WHOIS] ✅ ${rootDomain}: ${daysLeft} days left via whoisfreaks`,
-          );
-          return {
-            expiryDate: expiryDate.toISOString(),
-            daysLeft,
-            registrar: data.registrar_name || data.registrar || null,
-          };
-        }
-      }
-    } catch (e: any) {
-      console.log(`[WHOIS] whoisfreaks failed: ${e.message}`);
-    }
-
-    console.log(`[WHOIS] No expiry data for ${rootDomain}`);
     return { expiryDate: null, daysLeft: null, registrar: null };
   } catch (error: any) {
     console.error(`[WHOIS] Error for ${rawUrl}:`, error.message);
