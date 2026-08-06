@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import Sidebar from "@/components/sidebar";
+import ChatWidget from "@/components/assistant/ChatWidget";
 import DashboardHeader from "@/components/DashboardHeader";
 
 export const metadata: Metadata = {
@@ -44,6 +45,8 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+
+      <ChatWidget />
     </div>
   );
 }

@@ -968,6 +968,37 @@ export function subscribeToLogs(callback: (logs: CheckLog[]) => void) {
 }
 
 /* =========================================================
+   ASSISTANT CREDITS (Client-side helpers)
+   ========================================================= */
+
+export interface AssistantCreditsClient {
+  dailyLimit: number;
+  dailyUsed: number;
+  remaining: number;
+  lastResetDate: string;
+}
+
+export async function getAssistantCredits(): Promise<AssistantCreditsClient | null> {
+  const uid = getCurrentUserId();
+  if (!uid) return null;
+  const snap = await getDoc(doc(db, "users", uid, "assistant", "credits"));
+  return snap.exists() ? (snap.data() as AssistantCreditsClient) : null;
+}
+
+export function subscribeToAssistantCredits(
+  callback: (credits: AssistantCreditsClient | null) => void,
+) {
+  if (!hasUserId()) {
+    callback(null);
+    return () => {};
+  }
+  const uid = getCurrentUserId();
+  return onSnapshot(doc(db, "users", uid, "assistant", "credits"), (snap) => {
+    callback(snap.exists() ? (snap.data() as AssistantCreditsClient) : null);
+  });
+}
+
+/* =========================================================
    USER INITIALIZATION
    ========================================================= */
 
