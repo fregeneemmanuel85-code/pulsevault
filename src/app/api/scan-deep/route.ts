@@ -236,6 +236,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "URL required" }, { status: 400 });
       }
 
+      /* ── Fetch existing website doc early (needed for manual expiry) ── */
+      let existing: any = null;
+      if (effectiveWebsiteId) {
+        try {
+          const existingSnap = await db
+            .collection("users")
+            .doc(userId)
+            .collection("websites")
+            .doc(effectiveWebsiteId)
+            .get();
+          existing = existingSnap.exists ? existingSnap.data() : null;
+        } catch (e: any) {
+          console.log(`[Scan] Could not fetch existing: ${e.message}`);
+        }
+      }
+
       const result: ScanResult = {
         url: targetUrl,
         timestamp: new Date().toISOString(),
@@ -315,18 +331,33 @@ export async function POST(req: NextRequest) {
         registrar: null as string | null,
       };
 
-      try {
-        const whoisResult = await getDomainWhoisInfo(targetUrl);
-        domainInfo = {
-          expiryDate: whoisResult.expiryDate,
-          daysLeft: whoisResult.daysLeft,
-          registrar: whoisResult.registrar,
-        };
-        console.log(
-          `[Scan] Domain: ${domainInfo.registrar || "unknown registrar"}, expires in ${domainInfo.daysLeft} days`,
+      const hasManualExpiry = existing?.domainExpiryManual;
+      if (hasManualExpiry) {
+        const manualDate = new Date(existing.domainExpiryManual);
+        const now = new Date();
+        const daysLeft = Math.ceil(
+          (manualDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
         );
-      } catch (whoisErr: any) {
-        console.log(`[Scan] Domain check failed: ${whoisErr.message}`);
+        domainInfo = {
+          expiryDate: existing.domainExpiryManual,
+          daysLeft,
+          registrar: existing.domainRegistrar || null,
+        };
+        console.log(`[Scan] Using manual domain expiry: ${daysLeft} days left`);
+      } else {
+        try {
+          const whoisResult = await getDomainWhoisInfo(targetUrl);
+          domainInfo = {
+            expiryDate: whoisResult.expiryDate,
+            daysLeft: whoisResult.daysLeft,
+            registrar: whoisResult.registrar,
+          };
+          console.log(
+            `[Scan] Domain API: ${domainInfo.registrar || "unknown"}, expires in ${domainInfo.daysLeft} days`,
+          );
+        } catch (whoisErr: any) {
+          console.log(`[Scan] Domain API failed: ${whoisErr.message}`);
+        }
       }
 
       /* ── Fetch with manual redirect tracking + retry ── */
@@ -431,12 +462,14 @@ export async function POST(req: NextRequest) {
               .doc(effectiveWebsiteId);
 
             const existingSnap = await websiteRef.get();
-            const existing = existingSnap.exists ? existingSnap.data() : null;
+            const existingData = existingSnap.exists
+              ? existingSnap.data()
+              : null;
 
             const finalTechStack =
               result.techStack.detected.length > 0
                 ? result.techStack
-                : existing?.techStack || { detected: [] };
+                : existingData?.techStack || { detected: [] };
 
             const techPayload = cleanUndefined({
               techStack: finalTechStack,
@@ -529,9 +562,6 @@ export async function POST(req: NextRequest) {
             .collection("websites")
             .doc(effectiveWebsiteId);
 
-          const existingSnap = await websiteRef.get();
-          const existing = existingSnap.exists ? existingSnap.data() : null;
-
           let sslStatus: "valid" | "expired" | "expiring" | "unknown" =
             "unknown";
           if (!result.ssl.valid || result.ssl.daysLeft < 0) {
@@ -585,7 +615,8 @@ export async function POST(req: NextRequest) {
             runtimeErrors: result.runtimeErrors,
             headlessAvailable: result.headlessAvailable,
             techStack: finalTechStack,
-            // Domain expiration
+
+            // Domain expiration (API data only fills in if manual not set)
             domainExpiry: domainInfo.expiryDate,
             domainDaysLeft: domainInfo.daysLeft,
             domainRegistrar: domainInfo.registrar,
@@ -619,6 +650,7 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          const existingSnap = await websiteRef.get();
           if (existingSnap.exists) {
             await websiteRef.update(payload);
           } else {
@@ -682,7 +714,7 @@ export async function POST(req: NextRequest) {
               `${result.plugins.broken.length} broken plugin${result.plugins.broken.length !== 1 ? "s" : ""}`,
             );
           }
-          if (!result.forms.working && result.forms.total > 0) {
+          if (result.forms.total > 0 && !result.forms.working) {
             issues.push(
               `${result.forms.total} broken form${result.forms.total !== 1 ? "s" : ""}`,
             );

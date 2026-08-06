@@ -130,6 +130,9 @@ export interface Website {
   domainRegistrar?: string | null;
   domainLastChecked?: string | null;
 
+  // Manual domain expiry (user input)
+  domainExpiryManual?: string | null;
+
   // SEO monitoring
   seoScore?: number;
   seoLastScanned?: string;
@@ -349,6 +352,7 @@ export async function addWebsite(data: {
   checkInterval: number;
   incidents: number;
   priority?: PriorityLevel;
+  domainExpiryManual?: string | null;
 }): Promise<Website> {
   const userId = getCurrentUserId();
   if (!userId) throw new Error("User not authenticated");
@@ -386,6 +390,7 @@ export async function addWebsite(data: {
       csp: false,
     },
     redirectChain: [],
+    domainExpiryManual: data.domainExpiryManual || null,
   };
   await setDoc(getWebsiteRef(id), website);
   return website;

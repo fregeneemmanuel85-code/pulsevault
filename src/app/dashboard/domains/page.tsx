@@ -17,9 +17,16 @@ export default function DomainMonitorPage() {
 
     const unsub = subscribeToWebsites((data) => {
       const sorted = [...data].sort((a, b) => {
-        const aDays = a.domainDaysLeft ?? Infinity;
-        const bDays = b.domainDaysLeft ?? Infinity;
-        return aDays - bDays;
+        const getDays = (w: Website) => {
+          if (w.domainExpiryManual) {
+            return Math.ceil(
+              (new Date(w.domainExpiryManual).getTime() - Date.now()) /
+                (1000 * 60 * 60 * 24),
+            );
+          }
+          return w.domainDaysLeft ?? Infinity;
+        };
+        return getDays(a) - getDays(b);
       });
       setWebsites(sorted);
       setLoading(false);
@@ -28,9 +35,16 @@ export default function DomainMonitorPage() {
     return () => unsub();
   }, []);
 
-  const expiringSoon = websites.filter(
-    (w) => (w.domainDaysLeft ?? Infinity) < 30,
-  );
+  const expiringSoon = websites.filter((w) => {
+    if (w.domainExpiryManual) {
+      const days = Math.ceil(
+        (new Date(w.domainExpiryManual).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24),
+      );
+      return days < 30;
+    }
+    return (w.domainDaysLeft ?? Infinity) < 30;
+  });
 
   if (loading) {
     return (
@@ -72,29 +86,38 @@ export default function DomainMonitorPage() {
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <h2 className="font-semibold text-red-800 mb-2">Urgent Renewals</h2>
           <div className="space-y-2">
-            {expiringSoon.map((site) => (
-              <div
-                key={site.id}
-                className="flex items-center justify-between bg-white rounded-lg p-3"
-              >
-                <div>
-                  <Link
-                    href={`/dashboard/websites/${site.id}`}
-                    className="font-medium text-blue-600 hover:underline"
-                  >
-                    {site.name}
-                  </Link>
-                  <p className="text-sm text-gray-500">{site.url}</p>
+            {expiringSoon.map((site) => {
+              const daysLeft = site.domainExpiryManual
+                ? Math.ceil(
+                    (new Date(site.domainExpiryManual).getTime() - Date.now()) /
+                      (1000 * 60 * 60 * 24),
+                  )
+                : site.domainDaysLeft;
+
+              return (
+                <div
+                  key={site.id}
+                  className="flex items-center justify-between bg-white rounded-lg p-3"
+                >
+                  <div>
+                    <Link
+                      href={`/dashboard/websites/${site.id}`}
+                      className="font-medium text-blue-600 hover:underline"
+                    >
+                      {site.name}
+                    </Link>
+                    <p className="text-sm text-gray-500">{site.url}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-red-600 font-bold">
+                      {daysLeft! < 0
+                        ? `Expired ${Math.abs(daysLeft!)}d ago`
+                        : `${daysLeft} days left`}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-red-600 font-bold">
-                    {site.domainDaysLeft! < 0
-                      ? `Expired ${Math.abs(site.domainDaysLeft!)}d ago`
-                      : `${site.domainDaysLeft} days left`}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -110,8 +133,16 @@ export default function DomainMonitorPage() {
                 <p className="text-xs text-gray-500 truncate">{site.url}</p>
               </div>
               <DomainExpiryCard
-                expiry={site.domainExpiry ?? null}
-                daysLeft={site.domainDaysLeft ?? null}
+                expiry={site.domainExpiryManual ?? site.domainExpiry ?? null}
+                daysLeft={
+                  site.domainExpiryManual
+                    ? Math.ceil(
+                        (new Date(site.domainExpiryManual).getTime() -
+                          Date.now()) /
+                          (1000 * 60 * 60 * 24),
+                      )
+                    : (site.domainDaysLeft ?? null)
+                }
                 registrar={site.domainRegistrar ?? null}
               />
             </div>

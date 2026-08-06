@@ -1534,9 +1534,17 @@ export default function WebsiteDetailPage() {
 
         {/* Domain Expiration */}
         <DomainExpiryCard
-          expiry={website.domainExpiry ?? null}
-          daysLeft={website.domainDaysLeft ?? null}
-          registrar={website.domainRegistrar ?? null}
+          expiry={website.domainExpiryManual ?? website.domainExpiry}
+          daysLeft={
+            website.domainExpiryManual
+              ? Math.ceil(
+                  (new Date(website.domainExpiryManual).getTime() -
+                    Date.now()) /
+                    (1000 * 60 * 60 * 24),
+                )
+              : website.domainDaysLeft
+          }
+          registrar={website.domainRegistrar}
         />
 
         {/* SEO Score */}

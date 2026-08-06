@@ -78,6 +78,7 @@ export default function DashboardPage() {
   const [newUrl, setNewUrl] = useState("");
   const [newName, setNewName] = useState("");
   const [newPriority, setNewPriority] = useState<PriorityLevel>("normal");
+  const [domainExpiryManual, setDomainExpiryManual] = useState("");
   const [checking, setChecking] = useState(false);
   const [plan, setPlan] = useState<any>(null);
   const autoScanRef = useRef<NodeJS.Timeout | null>(null);
@@ -427,6 +428,7 @@ export default function DashboardPage() {
       lastChecked: "Just now",
       isMonitoring: true,
       checkInterval: checkInterval,
+      domainExpiryManual: domainExpiryManual || null,
       incidents: 0,
       priority: newPriority,
     });
@@ -434,6 +436,7 @@ export default function DashboardPage() {
     setNewUrl("");
     setNewName("");
     setNewPriority("normal");
+    setDomainExpiryManual("");
     setShowAdd(false);
 
     await runDeepScan(site);
@@ -1429,6 +1432,44 @@ export default function DashboardPage() {
                     Upgrade to Pro to unlock High and Critical priority levels.
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
+                    fontWeight: "500",
+                    color: "var(--text-secondary)",
+                    marginBottom: "0.25rem",
+                  }}
+                >
+                  Domain Expires (optional)
+                </label>
+                <input
+                  type="date"
+                  value={domainExpiryManual}
+                  onChange={(e) => setDomainExpiryManual(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "clamp(0.5rem, 2vw, 0.625rem) 0.875rem",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "0.5rem",
+                    fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
+                    boxSizing: "border-box",
+                    backgroundColor: "var(--bg-input)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                <p
+                  style={{
+                    fontSize: "clamp(0.6875rem, 1.5vw, 0.75rem)",
+                    color: "var(--text-muted)",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  We'll alert you 30 days before expiry
+                </p>
               </div>
 
               <div
