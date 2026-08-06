@@ -28,7 +28,6 @@ function getRootDomain(hostname: string): string {
   const parts = hostname.replace(/^www\./, "").split(".");
   if (parts.length <= 2) return parts.join(".");
 
-  // Handle common two-part TLDs
   const twoPartTlds = [
     "co",
     "com",
@@ -39,11 +38,50 @@ function getRootDomain(hostname: string): string {
     "net",
     "mil",
     "go",
+    "io",
+    "ai",
   ];
-  if (twoPartTlds.includes(parts[parts.length - 2])) {
+  if (parts.length > 2 && twoPartTlds.includes(parts[parts.length - 2])) {
     return parts.slice(-3).join(".");
   }
   return parts.slice(-2).join(".");
+}
+
+function parseExpiryFromWhoisText(text: string): {
+  expiry: string | null;
+  registrar: string | null;
+} {
+  const patterns = [
+    /(?:Registry Expiry Date|Expiration Date|Expires On|Expiry Date|expire-date|paid-till|Valid Until)[:\s]+([^\n\r]+)/i,
+    /(?:Registrar Registration Expiration Date)[:\s]+([^\n\r]+)/i,
+    /(?:Expires)[:\s]+([^\n\r]+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const dateStr = match[1].trim();
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        const registrarMatch =
+          text.match(/Registrar[:\s]+([^\n\r]+)/i) ||
+          text.match(/Sponsoring Registrar[:\s]+([^\n\r]+)/i);
+        return {
+          expiry: date.toISOString(),
+          registrar: registrarMatch ? registrarMatch[1].trim() : null,
+        };
+      }
+    }
+  }
+  return { expiry: null, registrar: null };
+}
+
+function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() =>
+    clearTimeout(timeout),
+  );
 }
 
 export async function getDomainWhoisInfo(
@@ -52,7 +90,7 @@ export async function getDomainWhoisInfo(
   try {
     const hostname = new URL(rawUrl).hostname;
 
-    // 1. Check if it's a platform subdomain (e.g., *.netlify.app)
+    // 1. Check platform subdomains
     for (let i = 0; i < hostname.split(".").length - 1; i++) {
       const domain = hostname.split(".").slice(i).join(".");
       if (PLATFORM_DOMAINS[domain]) {
@@ -67,15 +105,45 @@ export async function getDomainWhoisInfo(
       }
     }
 
-    // 2. For custom domains, try WHOIS API
     const rootDomain = getRootDomain(hostname);
     console.log(`[WHOIS] Looking up custom domain: ${rootDomain}`);
 
-    // Try ip2whois free tier
+    // Method 1: HackerTarget raw WHOIS (no key, most reliable)
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
+        `https://api.hackertarget.com/whois/?q=${rootDomain}`,
+        10000,
+      );
+      if (res.ok) {
+        const text = await res.text();
+        if (!text.toLowerCase().includes("error") && text.length > 50) {
+          const parsed = parseExpiryFromWhoisText(text);
+          if (parsed.expiry) {
+            const expiryDate = new Date(parsed.expiry);
+            const now = new Date();
+            const daysLeft = Math.ceil(
+              (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+            );
+            console.log(
+              `[WHOIS] ✅ ${rootDomain}: ${daysLeft} days left via HackerTarget`,
+            );
+            return {
+              expiryDate: parsed.expiry,
+              daysLeft,
+              registrar: parsed.registrar,
+            };
+          }
+        }
+      }
+    } catch (e: any) {
+      console.log(`[WHOIS] HackerTarget failed: ${e.message}`);
+    }
+
+    // Method 2: ip2whois free tier
+    try {
+      const res = await fetchWithTimeout(
         `https://api.ip2whois.com/v2?key=FREE&domain=${rootDomain}`,
-        { signal: AbortSignal.timeout(8000) },
+        8000,
       );
       if (res.ok) {
         const data = await res.json();
@@ -85,7 +153,9 @@ export async function getDomainWhoisInfo(
           const daysLeft = Math.ceil(
             (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
           );
-          console.log(`[WHOIS] ${rootDomain}: expires in ${daysLeft} days`);
+          console.log(
+            `[WHOIS] ✅ ${rootDomain}: ${daysLeft} days left via ip2whois`,
+          );
           return {
             expiryDate: expiryDate.toISOString(),
             daysLeft,
@@ -97,11 +167,11 @@ export async function getDomainWhoisInfo(
       console.log(`[WHOIS] ip2whois failed: ${e.message}`);
     }
 
-    // Try whoisfreaks (no key required for basic)
+    // Method 3: whoisfreaks
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://api.whoisfreaks.com/v1.0/whois?whois=live&domainName=${rootDomain}`,
-        { signal: AbortSignal.timeout(8000) },
+        8000,
       );
       if (res.ok) {
         const data = await res.json();
@@ -112,6 +182,9 @@ export async function getDomainWhoisInfo(
           const now = new Date();
           const daysLeft = Math.ceil(
             (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          console.log(
+            `[WHOIS] ✅ ${rootDomain}: ${daysLeft} days left via whoisfreaks`,
           );
           return {
             expiryDate: expiryDate.toISOString(),
@@ -125,17 +198,9 @@ export async function getDomainWhoisInfo(
     }
 
     console.log(`[WHOIS] No expiry data for ${rootDomain}`);
-    return {
-      expiryDate: null,
-      daysLeft: null,
-      registrar: null,
-    };
+    return { expiryDate: null, daysLeft: null, registrar: null };
   } catch (error: any) {
     console.error(`[WHOIS] Error for ${rawUrl}:`, error.message);
-    return {
-      expiryDate: null,
-      daysLeft: null,
-      registrar: null,
-    };
+    return { expiryDate: null, daysLeft: null, registrar: null };
   }
 }
