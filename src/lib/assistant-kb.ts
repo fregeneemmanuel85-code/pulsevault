@@ -9,10 +9,12 @@ function tokenize(text: string): string[] {
 }
 
 function scoreEntry(entry: KBEntry, queryTokens: string[]): number {
-  const entryTokens = new Set([
-    ...entry.keywords.flatMap((k) => tokenize(k)),
-    ...tokenize(entry.answer),
-  ]);
+  const entryTokens = Array.from(
+    new Set([
+      ...entry.keywords.flatMap((k) => tokenize(k)),
+      ...tokenize(entry.answer),
+    ]),
+  );
 
   let hits = 0;
   for (const qt of queryTokens) {
@@ -58,7 +60,7 @@ export function searchKnowledgeBase(query: string): KBResult {
     }
   }
 
-  const threshold = 0.35; // tune this
+  const threshold = 0.35;
   if (best && bestScore >= threshold) {
     return {
       found: true,
