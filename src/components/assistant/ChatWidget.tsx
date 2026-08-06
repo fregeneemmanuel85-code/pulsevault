@@ -80,18 +80,29 @@ export default function ChatWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 font-sans">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans">
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="bg-gradient-to-br from-blue-600 to-purple-600 text-white p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
+          className="bg-gradient-to-br from-blue-600 to-purple-600 text-white p-3.5 sm:p-4 rounded-full shadow-lg hover:scale-105 transition-transform"
         >
-          <MessageCircle size={24} />
+          <MessageCircle size={22} className="sm:w-6 sm:h-6" />
         </button>
       ) : (
-        <div className="w-[380px] h-[550px] bg-white rounded-2xl shadow-2xl border flex flex-col overflow-hidden">
+        <div
+          className="
+            fixed inset-0 sm:inset-auto
+            sm:w-[380px] sm:h-[550px]
+            bg-white
+            sm:rounded-2xl
+            shadow-2xl
+            border-0 sm:border
+            flex flex-col
+            overflow-hidden
+          "
+        >
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 sm:py-3 flex items-center justify-between shrink-0 sm:rounded-t-2xl">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">PV Assistant</span>
             </div>
@@ -99,9 +110,9 @@ export default function ChatWidget() {
               <CreditBadge />
               <button
                 onClick={() => setOpen(false)}
-                className="hover:bg-white/20 p-1 rounded transition-colors"
+                className="hover:bg-white/20 p-1.5 rounded transition-colors"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -120,7 +131,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t p-3 shrink-0 bg-white">
+          <div className="border-t p-3 sm:p-3 shrink-0 bg-white pb-safe">
             <SuggestionChips
               onSelect={(t) => sendMessage(t)}
               disabled={loading}
@@ -131,12 +142,12 @@ export default function ChatWidget() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 placeholder="Ask about your dashboard..."
-                className="flex-1 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 border rounded-xl px-3 py-2.5 sm:py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={() => sendMessage()}
                 disabled={loading || !input.trim()}
-                className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="bg-blue-600 text-white p-2.5 sm:p-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
               >
                 <Send size={16} />
               </button>

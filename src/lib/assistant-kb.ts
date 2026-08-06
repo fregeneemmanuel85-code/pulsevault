@@ -1,32 +1,38 @@
 import { ASSISTANT_KB, type KBEntry } from "@/data/assistant-kb";
 
-function tokenize(text: string): string[] {
+function normalize(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^\w\s]/g, " ")
-    .split(/\s+/)
-    .filter((t) => t.length > 2);
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function scoreEntry(entry: KBEntry, queryTokens: string[]): number {
-  const entryTokens = Array.from(
-    new Set([
-      ...entry.keywords.flatMap((k) => tokenize(k)),
-      ...tokenize(entry.answer),
-    ]),
-  );
+function scoreEntry(entry: KBEntry, query: string): number {
+  const queryNorm = normalize(query);
+  let matches = 0;
 
-  let hits = 0;
-  for (const qt of queryTokens) {
-    for (const et of entryTokens) {
-      if (et.includes(qt) || qt.includes(et)) {
-        hits += 1;
-        break;
-      }
+  for (const kw of entry.keywords) {
+    const kwNorm = normalize(kw);
+
+    // Exact phrase match = high score
+    if (queryNorm.includes(kwNorm)) {
+      matches += 2;
+      continue;
+    }
+
+    // Word overlap match = lower score
+    const kwWords = kwNorm.split(" ").filter((w) => w.length > 2);
+    const queryWords = queryNorm.split(" ");
+    const overlap = kwWords.filter((w) => queryWords.includes(w)).length;
+
+    if (overlap >= kwWords.length * 0.6) {
+      matches += 1;
     }
   }
 
-  return hits / Math.max(queryTokens.length, 1);
+  // Require at least 2 match points
+  return matches >= 2 ? Math.min(matches / 4, 1) : 0;
 }
 
 export interface KBResult {
@@ -38,8 +44,7 @@ export interface KBResult {
 }
 
 export function searchKnowledgeBase(query: string): KBResult {
-  const queryTokens = tokenize(query);
-  if (queryTokens.length === 0) {
+  if (!query || query.trim().length < 3) {
     return {
       found: false,
       answer: "",
@@ -53,14 +58,14 @@ export function searchKnowledgeBase(query: string): KBResult {
   let bestScore = 0;
 
   for (const entry of ASSISTANT_KB) {
-    const score = scoreEntry(entry, queryTokens);
+    const score = scoreEntry(entry, query);
     if (score > bestScore) {
       bestScore = score;
       best = entry;
     }
   }
 
-  const threshold = 0.35;
+  const threshold = 0.5;
   if (best && bestScore >= threshold) {
     return {
       found: true,
@@ -71,5 +76,11 @@ export function searchKnowledgeBase(query: string): KBResult {
     };
   }
 
-  return { found: false, answer: "", category: "", confidence: 0, entryId: "" };
+  return {
+    found: false,
+    answer: "",
+    category: "",
+    confidence: 0,
+    entryId: "",
+  };
 }

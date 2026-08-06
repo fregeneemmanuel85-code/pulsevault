@@ -48,15 +48,17 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 2. Try Knowledge Base (free)
-  const kb = searchKnowledgeBase(message);
-  if (kb.found) {
-    return NextResponse.json({
-      reply: kb.answer,
-      creditsUsed: 0,
-      source: "knowledge-base",
-      remainingCredits: (await getOrCreateCredits(userId)).remaining,
-    });
+  // 2. Try Knowledge Base ONLY if allowed for this intent
+  if (!intent.skipKB) {
+    const kb = searchKnowledgeBase(message);
+    if (kb.found) {
+      return NextResponse.json({
+        reply: kb.answer,
+        creditsUsed: 0,
+        source: "knowledge-base",
+        remainingCredits: (await getOrCreateCredits(userId)).remaining,
+      });
+    }
   }
 
   // 3. Check credits
@@ -70,20 +72,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 4. Build context
+  // 4. Build context with user's REAL data
   const context = await buildAssistantContext(userId);
   const prompt = contextToPrompt(context);
 
-  // 5. Call AI
+  // 5. Call AI with context
   const ai = await askAIWithFallback(prompt, message);
 
   // 6. Deduct credits on success
   if (ai.text && !ai.error) {
-    const ok = await deductCredits(userId, intent.creditCost);
-    if (!ok) {
-      // Race condition or bug — still return answer but log it
-      console.error("[Assistant] Credit deduction failed after AI success");
-    }
+    await deductCredits(userId, intent.creditCost);
   }
 
   const updatedCredits = await getOrCreateCredits(userId);
