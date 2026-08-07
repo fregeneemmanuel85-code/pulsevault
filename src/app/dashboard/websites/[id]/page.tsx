@@ -931,21 +931,7 @@ export default function WebsiteDetailPage() {
 
       {/* Website Thumbnail */}
       <div className="col-span-full bg-white dark:bg-slate-900 rounded-xl border dark:border-slate-700 overflow-hidden">
-        <div className="relative w-full aspect-[16/9] max-h-[300px] bg-slate-100 dark:bg-slate-800">
-          <img
-            src={`https://image.thum.io/get/width/1200/crop/675/noanimate/${encodeURIComponent(website.url)}`}
-            alt={`${website.name} preview`}
-            className="w-full h-full object-cover object-top"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-3">
-            <p className="text-white text-xs font-medium truncate">
-              {website.url}
-            </p>
-          </div>
-        </div>
+        <WebsiteThumbnail url={website.url} name={website.name} />
       </div>
 
       <div
@@ -2172,6 +2158,51 @@ export default function WebsiteDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+function WebsiteThumbnail({ url, name }: { url: string; name: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  const screenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`;
+
+  if (error) {
+    return (
+      <div className="relative w-full aspect-[16/9] max-h-[300px] bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center gap-2">
+        <Globe size={32} className="text-slate-400 dark:text-slate-500" />
+        <p className="text-xs text-slate-500 dark:text-slate-400 text-center px-4">
+          Preview unavailable
+        </p>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Open site →
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full aspect-[16/9] max-h-[300px] bg-slate-100 dark:bg-slate-800">
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 size={24} className="text-slate-400 animate-spin" />
+        </div>
+      )}
+      <img
+        src={screenshotUrl}
+        alt={`${name} preview`}
+        className={`w-full h-full object-cover object-top transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+      />
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-3">
+        <p className="text-white text-xs font-medium truncate">{url}</p>
+      </div>
     </div>
   );
 }
