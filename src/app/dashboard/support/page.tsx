@@ -11,15 +11,47 @@ const faqs = [
   },
   {
     q: "What is the Health Score?",
-    a: "Health Score is a weighted composite metric (0-100) combining uptime (30%), API (20%), SSL (10%), DNS (10%), forms (10%), JS errors (10%), and plugins (10%).",
+    a: "Health Score is a weighted composite metric (0-100) combining uptime (30%), API health (20%), SSL certificate (10%), DNS resolution (10%), forms (10%), JS errors (10%), and plugins (10%).",
   },
   {
-    q: "Can I monitor private/internal websites?",
-    a: "Yes, but you'll need to whitelist our monitoring IP addresses in your firewall.",
+    q: "Can I monitor private or internal websites?",
+    a: "Yes, but you'll need to whitelist our monitoring IP addresses in your firewall or use a reverse proxy so PulseVault can reach your internal endpoints.",
   },
   {
     q: "How do I set up email alerts?",
-    a: "Go to Settings → Notifications and toggle Email alerts. Make sure your email is verified.",
+    a: "Go to Settings → Notifications and toggle Email alerts. Make sure your email address is verified. Email alerts are available on Starter plans and above.",
+  },
+  {
+    q: "Why am I not receiving alert emails?",
+    a: "Check your spam/junk folder first. Then verify that email alerts are enabled in Settings → Notifications, and that your plan supports email alerts (Starter+).",
+  },
+  {
+    q: "What happens when my website goes offline?",
+    a: "PulseVault detects the outage, creates a critical alert, and sends you an email (if enabled). The site status changes to Offline and health drops to 0%.",
+  },
+  {
+    q: "How does the PV Assistant work?",
+    a: "PV Assistant is an AI chatbot that answers questions about your dashboard, explains issues, and suggests fixes. It uses your live website data to give contextual advice.",
+  },
+  {
+    q: "Can I change how often a single site is checked?",
+    a: "Check interval is set per plan, not per site. Upgrade your plan for faster intervals, or set site Priority (Pro+) to ensure critical sites are scanned first.",
+  },
+  {
+    q: "What technologies can PulseVault detect?",
+    a: "PulseVault detects React, Next.js, Vue, Angular, Svelte, WordPress, Shopify, Webflow, jQuery, Bootstrap, Tailwind CSS, Node.js, PHP, Nginx, Apache, Cloudflare, and more.",
+  },
+  {
+    q: "Is my data secure?",
+    a: "Yes. All data is stored in Firebase Firestore with row-level security. We never store your passwords, and SSL checks use read-only certificate inspection.",
+  },
+  {
+    q: "How do I cancel or downgrade my plan?",
+    a: "Go to Settings → Billing. You can downgrade to Free at any time. Your current plan features remain active until the end of your billing period.",
+  },
+  {
+    q: "What browsers does PulseVault use for scans?",
+    a: "Scans use standard HTTP requests with browser-like headers. Deep scans analyze HTML, CSS, and JavaScript without executing client-side code.",
   },
 ];
 
@@ -27,121 +59,48 @@ export default function SupportPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "clamp(1rem, 3vw, 1.5rem)",
-        padding: "0 clamp(0.5rem, 2vw, 1rem)",
-        width: "100%",
-        maxWidth: "100%",
-        overflowX: "hidden",
-        boxSizing: "border-box",
-      }}
-    >
+    <div className="flex flex-col gap-6 p-4 md:p-6 w-full max-w-full overflow-x-hidden box-border">
       {/* Header */}
       <div>
-        <h1
-          style={{
-            fontSize: "clamp(1.25rem, 4vw, 1.5rem)",
-            fontWeight: "700",
-            color: "#0f172a",
-          }}
-        >
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-slate-100">
           Support
         </h1>
-        <p
-          style={{
-            color: "#64748b",
-            fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-            marginTop: "0.25rem",
-          }}
-        >
+        <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
           Get help with PulseVault
         </p>
       </div>
 
       {/* Contact Options */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
-          gap: "clamp(0.75rem, 2vw, 1rem)",
-          width: "100%",
-          maxWidth: "100%",
-          boxSizing: "border-box",
-        }}
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
         {/* Twitter/X */}
         <a
           href="https://x.com/PulseVault01"
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            backgroundColor: "white",
-            borderRadius: "1rem",
-            border: "1px solid #e2e8f0",
-            padding: "clamp(1rem, 3vw, 1.5rem)",
-            textDecoration: "none",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
-            transition: "box-shadow 0.2s",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.boxShadow =
-              "0 4px 6px -1px rgba(0,0,0,0.1)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.boxShadow = "none";
-          }}
+          className="bg-white dark:bg-slate-900 rounded-2xl border dark:border-slate-700 p-4 md:p-5 flex flex-col gap-3 no-underline hover:shadow-md transition-shadow cursor-pointer"
         >
-          <div
-            style={{
-              padding: "0.5rem",
-              backgroundColor: "#eff6ff",
-              borderRadius: "0.75rem",
-              width: "fit-content",
-            }}
-          >
+          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl w-fit">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="20"
               height="20"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#2563eb"
+              stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{
-                width: "clamp(1rem, 2.5vw, 1.25rem)",
-                height: "clamp(1rem, 2.5vw, 1.25rem)",
-              }}
+              className="w-5 h-5 text-blue-600 dark:text-blue-400"
             >
               <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
               <path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
             </svg>
           </div>
           <div>
-            <h3
-              style={{
-                fontWeight: "600",
-                color: "#0f172a",
-                marginBottom: "0.25rem",
-                fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
-              }}
-            >
+            <h3 className="font-semibold text-gray-900 dark:text-slate-100 text-sm md:text-base mb-1">
               Twitter / X
             </h3>
-            <p
-              style={{
-                color: "#64748b",
-                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-              }}
-            >
+            <p className="text-gray-500 dark:text-slate-400 text-sm">
               @PulseVault01
             </p>
           </div>
@@ -152,70 +111,30 @@ export default function SupportPage() {
           href="https://t.me/PulseVaultsupport"
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            backgroundColor: "white",
-            borderRadius: "1rem",
-            border: "1px solid #e2e8f0",
-            padding: "clamp(1rem, 3vw, 1.5rem)",
-            textDecoration: "none",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
-            transition: "box-shadow 0.2s",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.boxShadow =
-              "0 4px 6px -1px rgba(0,0,0,0.1)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.boxShadow = "none";
-          }}
+          className="bg-white dark:bg-slate-900 rounded-2xl border dark:border-slate-700 p-4 md:p-5 flex flex-col gap-3 no-underline hover:shadow-md transition-shadow cursor-pointer"
         >
-          <div
-            style={{
-              padding: "0.5rem",
-              backgroundColor: "#f0f9ff",
-              borderRadius: "0.75rem",
-              width: "fit-content",
-            }}
-          >
+          <div className="p-2 bg-sky-50 dark:bg-sky-900/20 rounded-xl w-fit">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="20"
               height="20"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#0ea5e9"
+              stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{
-                width: "clamp(1rem, 2.5vw, 1.25rem)",
-                height: "clamp(1rem, 2.5vw, 1.25rem)",
-              }}
+              className="w-5 h-5 text-sky-500 dark:text-sky-400"
             >
               <path d="M21.5 4.5l-3.5 16.5l-9.5 -6.5l-3.5 -1.5l16.5 -8.5z" />
               <path d="M14.5 14l-3.5 -3.5l-6.5 3.5" />
             </svg>
           </div>
           <div>
-            <h3
-              style={{
-                fontWeight: "600",
-                color: "#0f172a",
-                marginBottom: "0.25rem",
-                fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
-              }}
-            >
+            <h3 className="font-semibold text-gray-900 dark:text-slate-100 text-sm md:text-base mb-1">
               Telegram
             </h3>
-            <p
-              style={{
-                color: "#64748b",
-                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-              }}
-            >
+            <p className="text-gray-500 dark:text-slate-400 text-sm">
               @PulseVaultsupport
             </p>
           </div>
@@ -224,59 +143,16 @@ export default function SupportPage() {
         {/* Email Support */}
         <a
           href="mailto:pulsevault.io@gmail.com"
-          style={{
-            backgroundColor: "white",
-            borderRadius: "1rem",
-            border: "1px solid #e2e8f0",
-            padding: "clamp(1rem, 3vw, 1.5rem)",
-            textDecoration: "none",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
-            transition: "box-shadow 0.2s",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.boxShadow =
-              "0 4px 6px -1px rgba(0,0,0,0.1)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.boxShadow = "none";
-          }}
+          className="bg-white dark:bg-slate-900 rounded-2xl border dark:border-slate-700 p-4 md:p-5 flex flex-col gap-3 no-underline hover:shadow-md transition-shadow cursor-pointer"
         >
-          <div
-            style={{
-              padding: "0.5rem",
-              backgroundColor: "#f0fdf4",
-              borderRadius: "0.75rem",
-              width: "fit-content",
-            }}
-          >
-            <Mail
-              style={{
-                width: "clamp(1rem, 2.5vw, 1.25rem)",
-                height: "clamp(1rem, 2.5vw, 1.25rem)",
-                color: "#16a34a",
-              }}
-            />
+          <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-xl w-fit">
+            <Mail className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <h3
-              style={{
-                fontWeight: "600",
-                color: "#0f172a",
-                marginBottom: "0.25rem",
-                fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
-              }}
-            >
+            <h3 className="font-semibold text-gray-900 dark:text-slate-100 text-sm md:text-base mb-1">
               Email Support
             </h3>
-            <p
-              style={{
-                color: "#64748b",
-                fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-              }}
-            >
+            <p className="text-gray-500 dark:text-slate-400 text-sm">
               pulsevault.io@gmail.com
             </p>
           </div>
@@ -284,122 +160,37 @@ export default function SupportPage() {
       </div>
 
       {/* FAQs */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "1rem",
-          border: "1px solid #e2e8f0",
-          padding: "clamp(1rem, 3vw, 1.5rem)",
-          width: "100%",
-          maxWidth: "100%",
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            marginBottom: "1rem",
-          }}
-        >
-          <div
-            style={{
-              padding: "0.5rem",
-              backgroundColor: "#fffbeb",
-              borderRadius: "0.75rem",
-            }}
-          >
-            <HelpCircle
-              style={{
-                width: "clamp(1rem, 2.5vw, 1.25rem)",
-                height: "clamp(1rem, 2.5vw, 1.25rem)",
-                color: "#d97706",
-              }}
-            />
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border dark:border-slate-700 p-4 md:p-5 w-full">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+            <HelpCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
           </div>
-          <h2
-            style={{
-              fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
-              fontWeight: "600",
-              color: "#0f172a",
-            }}
-          >
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-slate-100">
             Frequently Asked Questions
           </h2>
         </div>
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-        >
+        <div className="flex flex-col gap-2">
           {faqs.map((faq, i) => (
             <div
               key={i}
-              style={{
-                border: "1px solid #f1f5f9",
-                borderRadius: "0.75rem",
-                overflow: "hidden",
-              }}
+              className="border border-gray-100 dark:border-slate-700 rounded-xl overflow-hidden"
             >
               <button
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "clamp(0.75rem, 2vw, 1rem)",
-                  textAlign: "left",
-                  border: "none",
-                  backgroundColor: "transparent",
-                  cursor: "pointer",
-                  transition: "background-color 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor =
-                    "#f8fafc";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.backgroundColor =
-                    "transparent";
-                }}
+                className="w-full flex items-center justify-between p-3 md:p-4 text-left bg-transparent hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
               >
-                <span
-                  style={{
-                    fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
-                    fontWeight: "500",
-                    color: "#0f172a",
-                    paddingRight: "0.5rem",
-                  }}
-                >
+                <span className="text-sm font-medium text-gray-900 dark:text-slate-100 pr-2">
                   {faq.q}
                 </span>
                 <ChevronRight
-                  style={{
-                    width: "clamp(0.875rem, 2vw, 1rem)",
-                    height: "clamp(0.875rem, 2vw, 1rem)",
-                    color: "#94a3b8",
-                    flexShrink: 0,
-                    transform: openFaq === i ? "rotate(90deg)" : "rotate(0deg)",
-                    transition: "transform 0.2s",
-                  }}
+                  className={`w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0 transition-transform duration-200 ${
+                    openFaq === i ? "rotate-90" : ""
+                  }`}
                 />
               </button>
               {openFaq === i && (
-                <div
-                  style={{
-                    padding:
-                      "0 clamp(0.75rem, 2vw, 1rem) clamp(0.75rem, 2vw, 1rem)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                      color: "#475569",
-                      lineHeight: 1.6,
-                      margin: 0,
-                    }}
-                  >
+                <div className="px-3 md:px-4 pb-3 md:pb-4">
+                  <p className="text-sm text-gray-600 dark:text-slate-400 leading-relaxed">
                     {faq.a}
                   </p>
                 </div>
@@ -409,37 +200,17 @@ export default function SupportPage() {
         </div>
       </div>
 
-      {/* ⬇️ ADDED: Footer links */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "clamp(1rem, 3vw, 1.5rem)",
-          padding: "clamp(0.75rem, 2vw, 1rem) 0",
-          borderTop: "1px solid #e2e8f0",
-          marginTop: "0.5rem",
-        }}
-      >
+      {/* Footer links */}
+      <div className="flex items-center justify-center gap-6 py-4 border-t border-gray-200 dark:border-slate-700 mt-2">
         <Link
           href="/privacy-policy"
-          style={{
-            color: "#64748b",
-            textDecoration: "none",
-            fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-            fontWeight: "500",
-          }}
+          className="text-gray-500 dark:text-slate-400 text-sm font-medium hover:text-gray-700 dark:hover:text-slate-200 no-underline"
         >
           Privacy Policy
         </Link>
         <Link
           href="/terms-of-service"
-          style={{
-            color: "#64748b",
-            textDecoration: "none",
-            fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-            fontWeight: "500",
-          }}
+          className="text-gray-500 dark:text-slate-400 text-sm font-medium hover:text-gray-700 dark:hover:text-slate-200 no-underline"
         >
           Terms of Service
         </Link>
