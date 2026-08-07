@@ -21,7 +21,7 @@ export default function SuggestionChips({ onSelect, disabled }: Props) {
           key={s}
           onClick={() => onSelect(s)}
           disabled={disabled}
-          className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
+          className="text-[11px] bg-[#1e293b] hover:bg-[#334155] text-slate-300 border border-white/[0.06] px-3 py-1.5 rounded-full transition-all duration-200 disabled:opacity-40 hover:border-indigo-500/30"
         >
           {s}
         </button>

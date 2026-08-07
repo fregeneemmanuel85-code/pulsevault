@@ -28,16 +28,22 @@ export default function CreditBadge({ refreshKey }: Props) {
     credits.dailyLimit > 0 ? (credits.remaining / credits.dailyLimit) * 100 : 0;
   const color =
     percent > 50
-      ? "text-green-600"
+      ? "text-emerald-400"
       : percent > 20
-        ? "text-yellow-600"
-        : "text-red-600";
+        ? "text-amber-400"
+        : "text-rose-400";
+  const bg =
+    percent > 50
+      ? "bg-emerald-500/10"
+      : percent > 20
+        ? "bg-amber-500/10"
+        : "bg-rose-500/10";
 
   return (
     <div
-      className={`flex items-center gap-1.5 text-xs font-medium ${color} bg-white/80 px-2.5 py-1 rounded-full`}
+      className={`flex items-center gap-1.5 text-[11px] font-semibold ${color} ${bg} px-2.5 py-1 rounded-full border border-white/[0.06]`}
     >
-      <Zap size={12} />
+      <Zap size={10} />
       <span>
         {credits.remaining}/{credits.dailyLimit}
       </span>
