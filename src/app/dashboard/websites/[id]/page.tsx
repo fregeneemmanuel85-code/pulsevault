@@ -1548,17 +1548,11 @@ export default function WebsiteDetailPage() {
         />
 
         {/* SEO Score */}
-        <SEOSummaryCard
-          score={website.seoScore ?? 0}
-          issues={website.seoIssues?.length ?? 0}
-          lastScanned={website.seoLastScanned}
-        />
-
         {/* SEO Issues Detail */}
         {website.seoIssues && website.seoIssues.length > 0 && (
-          <div className="col-span-full bg-white rounded-xl border p-5 mt-2">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Search size={16} className="text-blue-600" />
+          <div className="col-span-full bg-white dark:bg-slate-900 rounded-xl border dark:border-slate-700 p-5 mt-2">
+            <h3 className="font-semibold text-gray-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+              <Search size={16} className="text-blue-600 dark:text-blue-400" />
               SEO Issues ({website.seoIssues.length})
             </h3>
             <div className="space-y-2">
@@ -1567,24 +1561,27 @@ export default function WebsiteDetailPage() {
                   key={i}
                   className={`flex items-start gap-3 p-3 rounded-lg border text-sm ${
                     issue.type === "critical"
-                      ? "bg-red-50 border-red-100 text-red-800"
+                      ? "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/50 text-red-800 dark:text-red-300"
                       : issue.type === "warning"
-                        ? "bg-yellow-50 border-yellow-100 text-yellow-800"
-                        : "bg-blue-50 border-blue-100 text-blue-800"
+                        ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-100 dark:border-yellow-800/50 text-yellow-800 dark:text-yellow-300"
+                        : "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 text-blue-800 dark:text-blue-300"
                   }`}
                 >
                   {issue.type === "critical" ? (
                     <AlertTriangle
                       size={16}
-                      className="text-red-500 shrink-0 mt-0.5"
+                      className="text-red-500 dark:text-red-400 shrink-0 mt-0.5"
                     />
                   ) : issue.type === "warning" ? (
                     <AlertTriangle
                       size={16}
-                      className="text-yellow-500 shrink-0 mt-0.5"
+                      className="text-yellow-500 dark:text-yellow-400 shrink-0 mt-0.5"
                     />
                   ) : (
-                    <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                    <Info
+                      size={16}
+                      className="text-blue-500 dark:text-blue-400 shrink-0 mt-0.5"
+                    />
                   )}
                   <div>
                     <p className="font-medium">{issue.message}</p>
