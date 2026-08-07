@@ -43,6 +43,27 @@ export default function SettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  // CRITICAL FIX: Apply theme immediately on mount before auth loads
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem("pulsevault-theme") as
+      | "light"
+      | "dark"
+      | "system"
+      | null;
+    if (saved) {
+      applyTheme(saved);
+    } else {
+      // Check system preference if nothing saved
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches;
+      if (prefersDark) {
+        document.documentElement.classList.add("dark");
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {

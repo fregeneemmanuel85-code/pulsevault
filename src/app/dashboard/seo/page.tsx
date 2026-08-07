@@ -37,37 +37,49 @@ export default function SEOMonitorPage() {
 
   const getScoreColor = (score: number) => {
     if (score >= 80)
-      return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+      return "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20";
     if (score >= 50)
-      return "text-amber-400 bg-amber-500/10 border-amber-500/20";
-    return "text-rose-400 bg-rose-500/10 border-rose-500/20";
+      return "text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20";
+    return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20";
   };
 
   const getIssueIcon = (type: string) => {
     if (type === "critical")
-      return <AlertTriangle size={14} className="text-rose-400 shrink-0" />;
+      return (
+        <AlertTriangle
+          size={14}
+          className="text-red-500 dark:text-red-400 shrink-0"
+        />
+      );
     if (type === "warning")
-      return <Info size={14} className="text-amber-400 shrink-0" />;
-    return <Info size={14} className="text-indigo-400 shrink-0" />;
+      return (
+        <Info
+          size={14}
+          className="text-yellow-500 dark:text-yellow-400 shrink-0"
+        />
+      );
+    return (
+      <Info size={14} className="text-blue-500 dark:text-blue-400 shrink-0" />
+    );
   };
 
   const getIssueBg = (type: string) => {
     if (type === "critical")
-      return "bg-rose-500/5 border-rose-500/15 text-rose-300";
+      return "bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/50 text-red-800 dark:text-red-300";
     if (type === "warning")
-      return "bg-amber-500/5 border-amber-500/15 text-amber-300";
-    return "bg-indigo-500/5 border-indigo-500/15 text-indigo-300";
+      return "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-100 dark:border-yellow-800/50 text-yellow-800 dark:text-yellow-300";
+    return "bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 text-blue-800 dark:text-blue-300";
   };
 
   if (loading) {
     return (
       <div className="p-4 md:p-8">
-        <div className="h-8 w-48 bg-slate-700 rounded animate-pulse mb-6" />
+        <div className="h-8 w-48 bg-gray-200 dark:bg-slate-700 rounded animate-pulse mb-6" />
         <div className="grid gap-4">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-24 md:h-20 bg-[#1e293b] rounded-xl animate-pulse"
+              className="h-24 md:h-20 bg-gray-100 dark:bg-slate-800 rounded-xl animate-pulse"
             />
           ))}
         </div>
@@ -79,19 +91,19 @@ export default function SEOMonitorPage() {
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2 text-slate-100">
-            <Search size={24} className="text-indigo-400" />
+          <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2 text-gray-900 dark:text-slate-100">
+            <Search size={24} className="text-blue-600 dark:text-blue-400" />
             SEO Monitor
           </h1>
-          <p className="text-slate-400 mt-1 text-sm md:text-base">
+          <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm md:text-base">
             On-page SEO health across all your websites
           </p>
         </div>
       </div>
 
-      <div className="bg-[#0f172a] rounded-xl border border-white/[0.06] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border dark:border-white/[0.06] overflow-hidden">
         {/* Desktop Header */}
-        <div className="hidden md:grid md:grid-cols-12 md:gap-4 p-4 border-b border-white/[0.06] bg-[#0b0f19] text-sm font-medium text-slate-400">
+        <div className="hidden md:grid md:grid-cols-12 md:gap-4 p-4 border-b dark:border-white/[0.06] bg-gray-50 dark:bg-slate-800/50 text-sm font-medium text-gray-500 dark:text-slate-400">
           <div className="md:col-span-4">Website</div>
           <div className="md:col-span-2 text-center">SEO Score</div>
           <div className="md:col-span-3">Critical Issues</div>
@@ -109,12 +121,12 @@ export default function SEOMonitorPage() {
           return (
             <div
               key={site.id}
-              className="border-b border-white/[0.06] last:border-b-0"
+              className="border-b dark:border-white/[0.06] last:border-b-0"
             >
               {/* Row Button */}
               <button
                 onClick={() => setExpandedId(isExpanded ? null : site.id)}
-                className="w-full p-4 hover:bg-[#1e293b]/40 transition-colors text-left"
+                className="w-full p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors text-left"
               >
                 {/* Mobile Layout */}
                 <div className="md:hidden">
@@ -124,41 +136,41 @@ export default function SEOMonitorPage() {
                         {isExpanded ? (
                           <ChevronUp
                             size={16}
-                            className="text-slate-500 shrink-0"
+                            className="text-gray-400 dark:text-slate-500 shrink-0"
                           />
                         ) : (
                           <ChevronDown
                             size={16}
-                            className="text-slate-500 shrink-0"
+                            className="text-gray-400 dark:text-slate-500 shrink-0"
                           />
                         )}
-                        <p className="font-medium text-slate-100 truncate">
+                        <p className="font-medium text-gray-900 dark:text-slate-100 truncate">
                           {site.name}
                         </p>
                       </div>
-                      <p className="text-xs text-slate-500 truncate mt-0.5 ml-6">
+                      <p className="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5 ml-6">
                         {site.url}
                       </p>
 
                       {/* Mobile issue badges */}
                       <div className="flex items-center gap-3 mt-2 ml-6">
                         {critical > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-rose-400 text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium">
                             <AlertTriangle size={12} />
                             {critical} critical
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-gray-400 dark:text-slate-500">
                             No critical
                           </span>
                         )}
                         {warnings > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400 text-xs font-medium">
                             <Info size={12} />
                             {warnings} warnings
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-gray-400 dark:text-slate-500">
                             No warnings
                           </span>
                         )}
@@ -168,7 +180,7 @@ export default function SEOMonitorPage() {
                     {/* Mobile Score */}
                     <div className="shrink-0">
                       <span
-                        className={`inline-flex items-center justify-center w-12 h-12 rounded-full text-base font-bold border ${getScoreColor(score)}`}
+                        className={`inline-flex items-center justify-center w-12 h-12 rounded-full text-base font-bold ${getScoreColor(score)}`}
                       >
                         {score}
                       </span>
@@ -182,48 +194,52 @@ export default function SEOMonitorPage() {
                     {isExpanded ? (
                       <ChevronUp
                         size={16}
-                        className="text-slate-500 shrink-0"
+                        className="text-gray-400 dark:text-slate-500 shrink-0"
                       />
                     ) : (
                       <ChevronDown
                         size={16}
-                        className="text-slate-500 shrink-0"
+                        className="text-gray-400 dark:text-slate-500 shrink-0"
                       />
                     )}
                     <div>
-                      <p className="font-medium text-slate-100 truncate">
+                      <p className="font-medium text-gray-900 dark:text-slate-100 truncate">
                         {site.name}
                       </p>
-                      <p className="text-xs text-slate-500 truncate">
+                      <p className="text-xs text-gray-500 dark:text-slate-400 truncate">
                         {site.url}
                       </p>
                     </div>
                   </div>
                   <div className="md:col-span-2 text-center">
                     <span
-                      className={`inline-flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold border ${getScoreColor(score)}`}
+                      className={`inline-flex items-center justify-center w-12 h-12 rounded-full text-lg font-bold ${getScoreColor(score)}`}
                     >
                       {score}
                     </span>
                   </div>
                   <div className="md:col-span-3">
                     {critical > 0 ? (
-                      <span className="inline-flex items-center gap-1 text-rose-400 text-sm font-medium">
+                      <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 text-sm font-medium">
                         <AlertTriangle size={14} />
                         {critical} critical
                       </span>
                     ) : (
-                      <span className="text-sm text-slate-500">None</span>
+                      <span className="text-sm text-gray-400 dark:text-slate-500">
+                        None
+                      </span>
                     )}
                   </div>
                   <div className="md:col-span-3">
                     {warnings > 0 ? (
-                      <span className="inline-flex items-center gap-1 text-amber-400 text-sm font-medium">
+                      <span className="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400 text-sm font-medium">
                         <Info size={14} />
                         {warnings} warnings
                       </span>
                     ) : (
-                      <span className="text-sm text-slate-500">None</span>
+                      <span className="text-sm text-gray-400 dark:text-slate-500">
+                        None
+                      </span>
                     )}
                   </div>
                 </div>
@@ -231,15 +247,15 @@ export default function SEOMonitorPage() {
 
               {/* Expanded issue details */}
               {isExpanded && site.seoIssues && site.seoIssues.length > 0 && (
-                <div className="px-4 pb-4 bg-[#0b0f19]/50">
+                <div className="px-4 pb-4 bg-gray-50/50 dark:bg-slate-800/30">
                   <div className="md:ml-6 space-y-2">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold text-slate-300">
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300">
                         Detected Issues
                       </h3>
                       <Link
                         href={`/dashboard/websites/${site.id}`}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
                       >
                         View full report →
                       </Link>
@@ -252,7 +268,7 @@ export default function SEOMonitorPage() {
                         {getIssueIcon(issue.type)}
                         <div className="min-w-0">
                           <p className="font-medium">{issue.message}</p>
-                          <p className="text-xs opacity-70 mt-0.5">
+                          <p className="text-xs opacity-80 mt-0.5">
                             {issue.recommendation}
                           </p>
                         </div>
@@ -264,9 +280,12 @@ export default function SEOMonitorPage() {
 
               {isExpanded &&
                 (!site.seoIssues || site.seoIssues.length === 0) && (
-                  <div className="px-4 pb-4 bg-[#0b0f19]/50">
-                    <div className="md:ml-6 p-3 text-sm text-slate-400 flex items-center gap-2">
-                      <CheckCircle size={14} className="text-emerald-400" />
+                  <div className="px-4 pb-4 bg-gray-50/50 dark:bg-slate-800/30">
+                    <div className="md:ml-6 p-3 text-sm text-gray-500 dark:text-slate-400 flex items-center gap-2">
+                      <CheckCircle
+                        size={14}
+                        className="text-green-500 dark:text-green-400"
+                      />
                       No SEO issues detected. Great job!
                     </div>
                   </div>
@@ -276,8 +295,8 @@ export default function SEOMonitorPage() {
         })}
 
         {websites.length === 0 && (
-          <div className="text-center py-16 text-slate-500">
-            <Search size={48} className="mx-auto mb-4 opacity-30" />
+          <div className="text-center py-16 text-gray-400 dark:text-slate-500">
+            <Search size={48} className="mx-auto mb-4 opacity-50" />
             <p>No websites found. Add a website to monitor SEO.</p>
           </div>
         )}

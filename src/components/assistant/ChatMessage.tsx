@@ -57,13 +57,27 @@ export default function ChatMessage({
         </div>
       )}
       <div
-        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed break-words ${
+        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser
             ? "bg-indigo-600 text-white rounded-br-none shadow-lg shadow-indigo-900/20"
             : "bg-[#1e293b] text-slate-200 rounded-tl-none border border-white/[0.06]"
         }`}
+        style={{
+          minWidth: 0,
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+        }}
       >
-        <div className="whitespace-pre-wrap break-words">{displayedText}</div>
+        <div
+          className="whitespace-pre-wrap"
+          style={{
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+            hyphens: "auto",
+          }}
+        >
+          {displayedText}
+        </div>
 
         {!isUser && showMeta && source && (
           <div className="mt-2.5 flex items-center gap-2 text-[11px] opacity-60 border-t border-white/[0.06] pt-2">
