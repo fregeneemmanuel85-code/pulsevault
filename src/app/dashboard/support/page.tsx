@@ -45,10 +45,7 @@ const faqs = [
     q: "Is my data secure?",
     a: "Yes. All data is stored in Firebase Firestore with row-level security. We never store your passwords, and SSL checks use read-only certificate inspection.",
   },
-  {
-    q: "How do I cancel or downgrade my plan?",
-    a: "Go to Settings → Billing. You can downgrade to Free at any time. Your current plan features remain active until the end of your billing period.",
-  },
+
   {
     q: "What browsers does PulseVault use for scans?",
     a: "Scans use standard HTTP requests with browser-like headers. Deep scans analyze HTML, CSS, and JavaScript without executing client-side code.",
