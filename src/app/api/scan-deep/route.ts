@@ -718,9 +718,7 @@ export async function POST(req: NextRequest) {
           }
 
           const alertType =
-            result.status === "offline"
-              ? "Website Offline"
-              : "Health Score Drop";
+            result.status === "offline" ? "Site Offline" : "Health Check Alert";
 
           const issues: string[] = [];
           if (result.links.broken > 0) {

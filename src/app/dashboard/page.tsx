@@ -166,62 +166,6 @@ export default function DashboardPage() {
   }, [authReady, plan?.checkInterval, plan?.planId]);
 
   const runDeepScan = async (site: Website) => {
-    /* ── helper: send rich email alert ── */
-    const sendEmailAlert = async (alertData: {
-      alertType: string;
-      severity: "critical" | "warning" | "info";
-      message: string;
-      healthScore?: number;
-      httpStatus?: number;
-      sslStatus?: "valid" | "expiring" | "expired";
-      sslDaysLeft?: number;
-      loadTime?: number;
-    }) => {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user?.email) {
-          console.log("[Email] No user email, skipping");
-          return;
-        }
-
-        const res = await fetch("/api/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: user.email,
-            userName: user.displayName || "User",
-            alertType: alertData.alertType,
-            severity: alertData.severity,
-            message: alertData.message,
-            target: site.url,
-            timestamp: new Date().toLocaleString("en-US", {
-              weekday: "short",
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            }),
-            healthScore: alertData.healthScore,
-            httpStatus: alertData.httpStatus,
-            sslStatus: alertData.sslStatus,
-            sslDaysLeft: alertData.sslDaysLeft,
-            loadTime: alertData.loadTime,
-          }),
-        });
-
-        if (!res.ok) {
-          console.error("[Email] Failed to send:", await res.text());
-        } else {
-          console.log("[Email] Sent", alertData.alertType, "to", user.email);
-        }
-      } catch (e: any) {
-        console.error("[Email] Error sending alert:", e.message);
-      }
-    };
-
     try {
       console.log("[Scan] Starting scan for", site.url);
 
@@ -367,25 +311,6 @@ export default function DashboardPage() {
             severity: "warning",
             status: "open",
           });
-          await sendEmailAlert({
-            alertType: "Broken Links",
-            severity: "warning",
-            message:
-              result.links.broken +
-              " of " +
-              result.links.total +
-              " links are broken on " +
-              site.url,
-            healthScore: result.healthScore,
-            httpStatus: result.httpStatus,
-            sslStatus: ssl.valid
-              ? ssl.daysLeft < 30
-                ? "expiring"
-                : "valid"
-              : "expired",
-            sslDaysLeft: ssl.daysLeft,
-            loadTime: performance.loadTime,
-          });
         } catch (e: any) {
           console.error("[Alert] Broken links alert failed:", e.message);
         }
@@ -403,22 +328,6 @@ export default function DashboardPage() {
             severity: "warning",
             status: "open",
           });
-          await sendEmailAlert({
-            alertType: "Form Issues",
-            severity: "warning",
-            message:
-              result.forms.total +
-              " form(s) missing action or method attributes",
-            healthScore: result.healthScore,
-            httpStatus: result.httpStatus,
-            sslStatus: ssl.valid
-              ? ssl.daysLeft < 30
-                ? "expiring"
-                : "valid"
-              : "expired",
-            sslDaysLeft: ssl.daysLeft,
-            loadTime: performance.loadTime,
-          });
         } catch (e: any) {
           console.error("[Alert] Form issues alert failed:", e.message);
         }
@@ -433,20 +342,6 @@ export default function DashboardPage() {
             message: "Insecure HTTP resources found on HTTPS page",
             severity: "warning",
             status: "open",
-          });
-          await sendEmailAlert({
-            alertType: "Mixed Content",
-            severity: "warning",
-            message: "Insecure HTTP resources found on HTTPS page",
-            healthScore: result.healthScore,
-            httpStatus: result.httpStatus,
-            sslStatus: ssl.valid
-              ? ssl.daysLeft < 30
-                ? "expiring"
-                : "valid"
-              : "expired",
-            sslDaysLeft: ssl.daysLeft,
-            loadTime: performance.loadTime,
           });
         } catch (e: any) {
           console.error("[Alert] Mixed content alert failed:", e.message);
@@ -464,21 +359,6 @@ export default function DashboardPage() {
               errorDetails + ". Health score: " + result.healthScore + "%",
             severity: result.status === "critical" ? "critical" : "warning",
             status: "open",
-          });
-          await sendEmailAlert({
-            alertType: "Health Check Alert",
-            severity: result.status === "critical" ? "critical" : "warning",
-            message:
-              errorDetails + ". Health score: " + result.healthScore + "%",
-            healthScore: result.healthScore,
-            httpStatus: result.httpStatus,
-            sslStatus: ssl.valid
-              ? ssl.daysLeft < 30
-                ? "expiring"
-                : "valid"
-              : "expired",
-            sslDaysLeft: ssl.daysLeft,
-            loadTime: performance.loadTime,
           });
           console.log("[Alert] Health check alert created with:", errorDetails);
         } catch (e: any) {
@@ -506,16 +386,6 @@ export default function DashboardPage() {
           message: "Site is completely offline or unreachable: " + site.url,
           severity: "critical",
           status: "open",
-        });
-        await sendEmailAlert({
-          alertType: "Site Offline",
-          severity: "critical",
-          message: "Site is completely offline or unreachable: " + site.url,
-          healthScore: 0,
-          httpStatus: 0,
-          sslStatus: "expired",
-          sslDaysLeft: 0,
-          loadTime: 0,
         });
       } catch (e: any) {
         console.error("[Alert] Offline alert failed:", e.message);
