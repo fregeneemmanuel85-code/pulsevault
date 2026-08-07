@@ -928,6 +928,26 @@ export default function WebsiteDetailPage() {
       </div>
 
       {/* CARDS GRID */}
+
+      {/* Website Thumbnail */}
+      <div className="col-span-full bg-white dark:bg-slate-900 rounded-xl border dark:border-slate-700 overflow-hidden">
+        <div className="relative w-full aspect-[16/9] max-h-[300px] bg-slate-100 dark:bg-slate-800">
+          <img
+            src={`https://image.thum.io/get/width/1200/crop/675/noanimate/${encodeURIComponent(website.url)}`}
+            alt={`${website.name} preview`}
+            className="w-full h-full object-cover object-top"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-3">
+            <p className="text-white text-xs font-medium truncate">
+              {website.url}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div
         style={{
           display: "grid",
