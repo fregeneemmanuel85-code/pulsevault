@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Calendar,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Shield,
-} from "lucide-react";
+import { Globe, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 
 interface Props {
   expiry: string | null | undefined;
@@ -16,108 +10,116 @@ interface Props {
 
 export default function DomainExpiryCard({
   expiry,
-  daysLeft: rawDaysLeft,
+  daysLeft,
   registrar,
 }: Props) {
-  const daysLeft = rawDaysLeft ?? null;
+  const isExpired = daysLeft !== null && daysLeft !== undefined && daysLeft < 0;
+  const isExpiringSoon =
+    daysLeft !== null &&
+    daysLeft !== undefined &&
+    daysLeft >= 0 &&
+    daysLeft < 30;
+  const isSafe = daysLeft !== null && daysLeft !== undefined && daysLeft >= 30;
 
-  const getStatus = () => {
-    // Platform-managed domains (Netlify, Vercel, etc.)
-    if (daysLeft === null && registrar) {
-      return {
-        color: "bg-blue-50 text-blue-700 border-blue-200",
-        icon: <Shield size={18} className="text-blue-500" />,
-        label: "Managed",
-        subtext: `Platform-managed by ${registrar}`,
-      };
-    }
-
-    if (daysLeft === null) {
-      return {
-        color: "bg-gray-100 text-gray-700 border-gray-200",
-        icon: <Shield size={18} className="text-gray-500" />,
-        label: "Unknown",
-        subtext: "Could not retrieve domain data",
-      };
-    }
-    if (daysLeft < 0) {
-      return {
-        color: "bg-red-50 text-red-700 border-red-200",
-        icon: <XCircle size={18} className="text-red-500" />,
+  const statusConfig = isExpired
+    ? {
+        icon: AlertTriangle,
         label: "Expired",
-        subtext: `Expired ${Math.abs(daysLeft)} days ago`,
-      };
-    }
-    if (daysLeft < 7) {
-      return {
-        color: "bg-red-50 text-red-700 border-red-200",
-        icon: <AlertTriangle size={18} className="text-red-500" />,
-        label: "Critical",
-        subtext: `Expires in ${daysLeft} days`,
-      };
-    }
-    if (daysLeft < 30) {
-      return {
-        color: "bg-orange-50 text-orange-700 border-orange-200",
-        icon: <AlertTriangle size={18} className="text-orange-500" />,
-        label: "Expiring Soon",
-        subtext: `Expires in ${daysLeft} days`,
-      };
-    }
-    if (daysLeft < 90) {
-      return {
-        color: "bg-yellow-50 text-yellow-700 border-yellow-200",
-        icon: <Calendar size={18} className="text-yellow-500" />,
-        label: "Renewal Due",
-        subtext: `Expires in ${daysLeft} days`,
-      };
-    }
-    return {
-      color: "bg-green-50 text-green-700 border-green-200",
-      icon: <CheckCircle size={18} className="text-green-500" />,
-      label: "Healthy",
-      subtext: `Expires in ${daysLeft} days`,
-    };
-  };
+        color: "text-red-600 dark:text-red-400",
+        bg: "bg-red-50 dark:bg-red-900/20",
+        border: "border-red-200 dark:border-red-800/50",
+        text: "text-red-800 dark:text-red-300",
+      }
+    : isExpiringSoon
+      ? {
+          icon: Clock,
+          label: "Expiring Soon",
+          color: "text-amber-600 dark:text-amber-400",
+          bg: "bg-amber-50 dark:bg-amber-900/20",
+          border: "border-amber-200 dark:border-amber-800/50",
+          text: "text-amber-800 dark:text-amber-300",
+        }
+      : {
+          icon: CheckCircle2,
+          label: "Healthy",
+          color: "text-green-600 dark:text-green-400",
+          bg: "bg-green-50 dark:bg-green-900/20",
+          border: "border-green-200 dark:border-green-800/50",
+          text: "text-green-800 dark:text-green-300",
+        };
 
-  const status = getStatus();
-
-  const formattedDate = expiry
-    ? new Date(expiry).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    : "—";
+  const Icon = statusConfig.icon;
 
   return (
-    <div className={`rounded-xl border p-5 ${status.color}`}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-sm uppercase tracking-wide opacity-80">
-          Domain Expiration
-        </h3>
-        {status.icon}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Globe size={16} className="text-blue-600 dark:text-blue-400" />
+          <span className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+            Domain Expiry
+          </span>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${statusConfig.bg} ${statusConfig.color} border ${statusConfig.border}`}
+        >
+          <Icon size={12} />
+          {statusConfig.label}
+        </span>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold">{status.label}</span>
+      <div className="space-y-1">
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className={`text-2xl font-bold ${
+              isExpired
+                ? "text-red-600 dark:text-red-400"
+                : isExpiringSoon
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-green-600 dark:text-green-400"
+            }`}
+          >
+            {daysLeft !== null && daysLeft !== undefined
+              ? Math.abs(daysLeft)
+              : "—"}
+          </span>
+          <span className="text-sm text-gray-500 dark:text-slate-400">
+            {daysLeft !== null && daysLeft !== undefined
+              ? isExpired
+                ? "days overdue"
+                : "days left"
+              : "unknown"}
+          </span>
         </div>
-        <p className="text-sm opacity-90">{status.subtext}</p>
 
-        <div className="pt-3 mt-3 border-t border-current border-opacity-20 space-y-1">
-          <div className="flex justify-between text-sm">
-            <span className="opacity-70">Expiry Date</span>
-            <span className="font-medium">{formattedDate}</span>
-          </div>
-          {registrar && (
-            <div className="flex justify-between text-sm">
-              <span className="opacity-70">Registrar</span>
-              <span className="font-medium">{registrar}</span>
-            </div>
-          )}
-        </div>
+        {expiry && (
+          <p className="text-xs text-gray-500 dark:text-slate-400">
+            Expires:{" "}
+            <span className="font-medium text-gray-700 dark:text-slate-300">
+              {new Date(expiry).toLocaleDateString()}
+            </span>
+          </p>
+        )}
+
+        {registrar && (
+          <p className="text-xs text-gray-500 dark:text-slate-400">
+            Registrar:{" "}
+            <span className="font-medium text-gray-700 dark:text-slate-300">
+              {registrar}
+            </span>
+          </p>
+        )}
       </div>
+
+      {isExpired && (
+        <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+          Your domain has expired. Renew immediately to avoid losing it.
+        </p>
+      )}
+      {isExpiringSoon && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+          Renew soon to avoid service interruption.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageCircle, X, Send, Shield, Loader2 } from "lucide-react";
+import { Shield, X, Send } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import CreditBadge from "./CreditBadge";
 import SuggestionChips from "./SuggestionChips";
@@ -27,7 +27,6 @@ export default function ChatWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Check if user has opened before
   useEffect(() => {
     const opened = localStorage.getItem("pv-assistant-opened");
     setHasOpenedBefore(!!opened);
@@ -235,7 +234,7 @@ export default function ChatWidget() {
           className="pv-breathe pv-glow relative bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform duration-300 ease-out"
           aria-label="Open PV Assistant"
         >
-          <MessageCircle size={24} strokeWidth={2} />
+          <Shield size={24} strokeWidth={2} />
           <span className="absolute -top-1 -right-1 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>

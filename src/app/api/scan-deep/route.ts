@@ -4,6 +4,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { lookup } from "dns/promises";
 import "@/lib/firebase-admin";
 import { sendAlertEmail } from "@/lib/email-server";
+import { sendHealthDropAlert, sendSiteOfflineAlert } from "@/lib/email";
 import { getDomainWhoisInfo } from "@/lib/whois";
 import { scanSEO } from "@/lib/seo-scanner";
 import { checkSSLCertificate } from "@/lib/ssl-checker";
@@ -856,24 +857,38 @@ export async function POST(req: NextRequest) {
                 });
 
                 console.log(`[Scan] 📧 Sending alert email to: ${userEmail}`);
-                await sendAlertEmail({
-                  to: userEmail,
-                  userName,
-                  alertType: alertData.type,
-                  severity: alertData.severity as any,
-                  message: alertData.message,
-                  target: targetUrl,
-                  timestamp: formattedTimestamp,
-                  healthScore: result.healthScore,
-                  httpStatus: result.httpStatus,
-                  sslStatus: result.ssl.valid
-                    ? result.ssl.daysLeft < 30
-                      ? "expiring"
-                      : "valid"
-                    : "expired",
-                  sslDaysLeft: result.ssl.daysLeft,
-                  loadTime: result.performance.loadTime,
-                });
+                if (result.status === "offline") {
+                  await sendSiteOfflineAlert({
+                    to: userEmail,
+                    userName,
+                    target: targetUrl,
+                    httpStatus: result.httpStatus,
+                    sslStatus: result.ssl.valid
+                      ? result.ssl.daysLeft < 30
+                        ? "expiring"
+                        : "valid"
+                      : "expired",
+                    sslDaysLeft: result.ssl.daysLeft,
+                    loadTime: result.performance.loadTime,
+                    timestamp: formattedTimestamp,
+                  });
+                } else {
+                  await sendHealthDropAlert({
+                    to: userEmail,
+                    userName,
+                    target: targetUrl,
+                    healthScore: result.healthScore,
+                    httpStatus: result.httpStatus,
+                    sslStatus: result.ssl.valid
+                      ? result.ssl.daysLeft < 30
+                        ? "expiring"
+                        : "valid"
+                      : "expired",
+                    sslDaysLeft: result.ssl.daysLeft,
+                    loadTime: result.performance.loadTime,
+                    timestamp: formattedTimestamp,
+                  });
+                }
                 console.log(`[Scan] ✅ Alert email sent to ${userEmail}`);
               } else {
                 console.log(
