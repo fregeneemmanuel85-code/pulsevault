@@ -1548,6 +1548,12 @@ export default function WebsiteDetailPage() {
         />
 
         {/* SEO Score */}
+        <SEOSummaryCard
+          score={website.seoScore ?? 0}
+          issues={website.seoIssues?.length ?? 0}
+          lastScanned={website.seoLastScanned}
+        />
+
         {/* SEO Issues Detail */}
         {website.seoIssues && website.seoIssues.length > 0 && (
           <div className="col-span-full bg-white dark:bg-slate-900 rounded-xl border dark:border-slate-700 p-5 mt-2">
