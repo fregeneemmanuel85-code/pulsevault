@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Shield, X, Send } from "lucide-react";
+import { Shield, X, Send, Minus } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import CreditBadge from "./CreditBadge";
 import SuggestionChips from "./SuggestionChips";
@@ -15,6 +15,9 @@ interface Message {
   isNew?: boolean;
 }
 
+const STORAGE_KEY = "pv-assistant-messages";
+const OPENED_KEY = "pv-assistant-opened";
+
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -27,10 +30,30 @@ export default function ChatWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /* ── Load persisted chat on mount ── */
   useEffect(() => {
-    const opened = localStorage.getItem("pv-assistant-opened");
+    const opened = localStorage.getItem(OPENED_KEY);
     setHasOpenedBefore(!!opened);
+
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch {
+      // ignore corrupt storage
+    }
   }, []);
+
+  /* ── Persist chat whenever it changes ── */
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -53,32 +76,35 @@ export default function ChatWidget() {
     });
     setTimeout(() => {
       setShowWelcome(false);
-      setMessages([
-        {
-          role: "assistant",
-          text: "Hi! I'm PV Assistant. Ask me anything about your websites, health scores, alerts, or how to fix issues.",
-          source: "knowledge-base",
-          isNew: true,
-        },
-      ]);
+      const intro: Message = {
+        role: "assistant",
+        text: "Hi! I'm PV Assistant. Ask me anything about your websites, health scores, alerts, or how to fix issues.",
+        source: "knowledge-base",
+        isNew: true,
+      };
+      setMessages([intro]);
     }, 1800);
   }, []);
 
   const handleOpen = () => {
     setOpen(true);
     if (!hasOpenedBefore) {
-      localStorage.setItem("pv-assistant-opened", "true");
+      localStorage.setItem(OPENED_KEY, "true");
       setHasOpenedBefore(true);
       runWelcomeSequence();
     } else if (messages.length === 0) {
-      setMessages([
-        {
-          role: "assistant",
-          text: "Hi! I'm PV Assistant. Ask me anything about your websites, health scores, alerts, or how to fix issues.",
-          source: "knowledge-base",
-        },
-      ]);
+      const intro: Message = {
+        role: "assistant",
+        text: "Hi! I'm PV Assistant. Ask me anything about your websites, health scores, alerts, or how to fix issues.",
+        source: "knowledge-base",
+      };
+      setMessages([intro]);
     }
+  };
+
+  const handleMinimize = () => {
+    setOpen(false);
+    // messages are already persisted to localStorage via useEffect
   };
 
   const sendMessage = async (textOverride?: string) => {
@@ -272,10 +298,11 @@ export default function ChatWidget() {
             <div className="flex items-center gap-2">
               <CreditBadge refreshKey={refreshKey} />
               <button
-                onClick={() => setOpen(false)}
+                onClick={handleMinimize}
                 className="hover:bg-white/10 p-1.5 rounded-lg transition-colors duration-200"
+                title="Minimize"
               >
-                <X size={16} />
+                <Minus size={16} />
               </button>
             </div>
           </div>

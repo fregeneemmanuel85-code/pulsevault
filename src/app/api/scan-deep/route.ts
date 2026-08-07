@@ -4,7 +4,6 @@ import { getFirestore } from "firebase-admin/firestore";
 import { lookup } from "dns/promises";
 import "@/lib/firebase-admin";
 import { sendAlertEmail } from "@/lib/email-server";
-import { sendHealthDropAlert, sendSiteOfflineAlert } from "@/lib/email";
 import { getDomainWhoisInfo } from "@/lib/whois";
 import { scanSEO } from "@/lib/seo-scanner";
 import { checkSSLCertificate } from "@/lib/ssl-checker";
@@ -361,194 +360,218 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      /* ── Fetch with manual redirect tracking + retry ── */
-      const startTime = Date.now();
-      const redirectChain: string[] = [];
-      let finalResponse: Response | undefined;
-      let currentFetchUrl = targetUrl;
-      let redirectCount = 0;
-      const maxRedirects = 10;
+      /* ═══════════════════════════════════════════════════════════════
+         FETCH + PARSE BLOCK — wrapped in try/catch so unreachable
+         sites are properly marked OFFLINE and alerts still fire
+         ═══════════════════════════════════════════════════════════════ */
+      try {
+        const startTime = Date.now();
+        const redirectChain: string[] = [];
+        let finalResponse: Response | undefined;
+        let currentFetchUrl = targetUrl;
+        let redirectCount = 0;
+        const maxRedirects = 10;
 
-      while (redirectCount <= maxRedirects) {
-        const ctrl = new AbortController();
-        const fetchTimeout = setTimeout(
-          () => ctrl.abort(),
-          isLocalDev ? 30000 : 10000,
-        );
-
-        try {
-          const res = await fetchWithRetry(
-            currentFetchUrl,
-            {
-              method: "GET",
-              signal: ctrl.signal,
-              redirect: "manual",
-              headers: BROWSER_HEADERS,
-            },
-            1,
+        while (redirectCount <= maxRedirects) {
+          const ctrl = new AbortController();
+          const fetchTimeout = setTimeout(
+            () => ctrl.abort(),
+            isLocalDev ? 30000 : 10000,
           );
-          clearTimeout(fetchTimeout);
 
-          if (res.status >= 300 && res.status < 400) {
-            const location = res.headers.get("location");
-            if (location) {
-              currentFetchUrl = new URL(location, currentFetchUrl).href;
-              redirectChain.push(currentFetchUrl);
-              redirectCount++;
-              continue;
+          try {
+            const res = await fetchWithRetry(
+              currentFetchUrl,
+              {
+                method: "GET",
+                signal: ctrl.signal,
+                redirect: "manual",
+                headers: BROWSER_HEADERS,
+              },
+              1,
+            );
+            clearTimeout(fetchTimeout);
+
+            if (res.status >= 300 && res.status < 400) {
+              const location = res.headers.get("location");
+              if (location) {
+                currentFetchUrl = new URL(location, currentFetchUrl).href;
+                redirectChain.push(currentFetchUrl);
+                redirectCount++;
+                continue;
+              } else {
+                finalResponse = res;
+                break;
+              }
             } else {
               finalResponse = res;
               break;
             }
-          } else {
-            finalResponse = res;
-            break;
+          } catch (err: any) {
+            clearTimeout(fetchTimeout);
+            throw err;
           }
-        } catch (err: any) {
-          clearTimeout(fetchTimeout);
-          throw err;
         }
-      }
 
-      if (!finalResponse) {
-        throw new Error("Too many redirects");
-      }
+        if (!finalResponse) {
+          throw new Error("Too many redirects");
+        }
 
-      const response = finalResponse;
-      result.redirectChain = redirectChain;
-      result.httpStatus = response.status;
-      result.responseTime = Date.now() - startTime;
-      result.dns.resolved = true;
+        const response = finalResponse;
+        result.redirectChain = redirectChain;
+        result.httpStatus = response.status;
+        result.responseTime = Date.now() - startTime;
+        result.dns.resolved = true;
 
-      console.log(
-        `[Scan] Fetch result: status=${response.status}, content-type=${response.headers.get("content-type")}, finalUrl=${currentFetchUrl}`,
-      );
-
-      if (response.status >= 400) {
-        result.consoleErrors.push(`HTTP ${response.status} error returned`);
-      }
-
-      const headers = response.headers;
-      result.securityHeaders.hsts = !!headers.get("strict-transport-security");
-      result.securityHeaders.xFrame = !!headers.get("x-frame-options");
-      result.securityHeaders.xContentType = !!headers.get(
-        "x-content-type-options",
-      );
-      result.securityHeaders.csp = !!headers.get("content-security-policy");
-
-      const html = await response.text();
-
-      result.techStack = detectTechStack(html, headers);
-      /* ── SEO Scan ── */
-      const seoResult = scanSEO(html, currentFetchUrl);
-      result.seo = seoResult;
-      console.log(
-        `[Scan] SEO score: ${seoResult.score}, issues: ${seoResult.issues.length}`,
-      );
-      result.spaCrashes = detectSPACrashes(html, result.techStack);
-      result.runtimeErrors = detectRuntimeErrors(html);
-
-      /* ─── TECH-ONLY FAST PATH ─── */
-      if (isTechOnly) {
         console.log(
-          `[Scan] Tech-only mode: detected ${result.techStack.detected.length} technologies`,
+          `[Scan] Fetch result: status=${response.status}, content-type=${response.headers.get("content-type")}, finalUrl=${currentFetchUrl}`,
         );
 
-        if (effectiveWebsiteId) {
-          try {
-            const websiteRef = db
-              .collection("users")
-              .doc(userId)
-              .collection("websites")
-              .doc(effectiveWebsiteId);
+        if (response.status >= 400) {
+          result.consoleErrors.push(`HTTP ${response.status} error returned`);
+        }
 
-            const existingSnap = await websiteRef.get();
-            const existingData = existingSnap.exists
-              ? existingSnap.data()
-              : null;
+        const headers = response.headers;
+        result.securityHeaders.hsts = !!headers.get(
+          "strict-transport-security",
+        );
+        result.securityHeaders.xFrame = !!headers.get("x-frame-options");
+        result.securityHeaders.xContentType = !!headers.get(
+          "x-content-type-options",
+        );
+        result.securityHeaders.csp = !!headers.get("content-security-policy");
 
-            const finalTechStack =
-              result.techStack.detected.length > 0
-                ? result.techStack
-                : existingData?.techStack || { detected: [] };
+        const html = await response.text();
 
-            const techPayload = cleanUndefined({
-              techStack: finalTechStack,
-              spaCrashes: result.spaCrashes,
-              runtimeErrors: result.runtimeErrors,
-              "scanResults.techStack": finalTechStack,
-              "scanResults.spaCrashes": result.spaCrashes,
-              "scanResults.runtimeErrors": result.runtimeErrors,
-              updatedAt: new Date().toISOString(),
-            });
+        result.techStack = detectTechStack(html, headers);
+        /* ── SEO Scan ── */
+        const seoResult = scanSEO(html, currentFetchUrl);
+        result.seo = seoResult;
+        console.log(
+          `[Scan] SEO score: ${seoResult.score}, issues: ${seoResult.issues.length}`,
+        );
+        result.spaCrashes = detectSPACrashes(html, result.techStack);
+        result.runtimeErrors = detectRuntimeErrors(html);
 
-            if (existingSnap.exists) {
-              await websiteRef.update(techPayload);
-            } else {
-              await websiteRef.set(techPayload, { merge: true });
+        /* ─── TECH-ONLY FAST PATH ─── */
+        if (isTechOnly) {
+          console.log(
+            `[Scan] Tech-only mode: detected ${result.techStack.detected.length} technologies`,
+          );
+
+          if (effectiveWebsiteId) {
+            try {
+              const websiteRef = db
+                .collection("users")
+                .doc(userId)
+                .collection("websites")
+                .doc(effectiveWebsiteId);
+
+              const existingSnap = await websiteRef.get();
+              const existingData = existingSnap.exists
+                ? existingSnap.data()
+                : null;
+
+              const finalTechStack =
+                result.techStack.detected.length > 0
+                  ? result.techStack
+                  : existingData?.techStack || { detected: [] };
+
+              const techPayload = cleanUndefined({
+                techStack: finalTechStack,
+                spaCrashes: result.spaCrashes,
+                runtimeErrors: result.runtimeErrors,
+                "scanResults.techStack": finalTechStack,
+                "scanResults.spaCrashes": result.spaCrashes,
+                "scanResults.runtimeErrors": result.runtimeErrors,
+                updatedAt: new Date().toISOString(),
+              });
+
+              if (existingSnap.exists) {
+                await websiteRef.update(techPayload);
+              } else {
+                await websiteRef.set(techPayload, { merge: true });
+              }
+              console.log(`[Scan] Tech-only scan saved to Firestore`);
+            } catch (techSaveErr: any) {
+              console.error(
+                `[Scan] Tech-only save failed:`,
+                techSaveErr.message,
+              );
             }
-            console.log(`[Scan] Tech-only scan saved to Firestore`);
-          } catch (techSaveErr: any) {
-            console.error(`[Scan] Tech-only save failed:`, techSaveErr.message);
           }
+
+          return NextResponse.json({
+            ...result,
+            techOnly: true,
+            message: `Detected ${result.techStack.detected.length} technologies`,
+          });
         }
 
-        return NextResponse.json({
-          ...result,
-          techOnly: true,
-          message: `Detected ${result.techStack.detected.length} technologies`,
-        });
-      }
-
-      result.apiChecks = await checkAPIs(html, currentFetchUrl, scanStartTime);
-      result.headlessAvailable = false;
-
-      const parseResult = parseHTML(html, currentFetchUrl, result);
-
-      if (result.links.list.length > MAX_LINKS_TO_CHECK) {
-        console.log(
-          `[PulseVault] Limiting link check from ${result.links.list.length} to ${MAX_LINKS_TO_CHECK} links`,
+        result.apiChecks = await checkAPIs(
+          html,
+          currentFetchUrl,
+          scanStartTime,
         );
-        result.links.list = result.links.list.slice(0, MAX_LINKS_TO_CHECK);
-        result.links.total = MAX_LINKS_TO_CHECK;
-      }
+        result.headlessAvailable = false;
 
-      const htmlSize = Buffer.byteLength(html, "utf8");
+        const parseResult = parseHTML(html, currentFetchUrl, result);
 
-      const elapsed = Date.now() - scanStartTime;
-      let imageSize = 0;
-      if (elapsed < 10000 && parseResult.imageUrls.length > 0) {
-        imageSize = await estimateImageSizes(parseResult.imageUrls);
-      } else {
-        console.log(
-          `[PulseVault] Skipping image estimation - elapsed=${elapsed}ms, images=${parseResult.imageUrls.length}`,
+        if (result.links.list.length > MAX_LINKS_TO_CHECK) {
+          console.log(
+            `[PulseVault] Limiting link check from ${result.links.list.length} to ${MAX_LINKS_TO_CHECK} links`,
+          );
+          result.links.list = result.links.list.slice(0, MAX_LINKS_TO_CHECK);
+          result.links.total = MAX_LINKS_TO_CHECK;
+        }
+
+        const htmlSize = Buffer.byteLength(html, "utf8");
+
+        const elapsed = Date.now() - scanStartTime;
+        let imageSize = 0;
+        if (elapsed < 10000 && parseResult.imageUrls.length > 0) {
+          imageSize = await estimateImageSizes(parseResult.imageUrls);
+        } else {
+          console.log(
+            `[PulseVault] Skipping image estimation - elapsed=${elapsed}ms, images=${parseResult.imageUrls.length}`,
+          );
+          const cappedRemaining = Math.min(parseResult.imageUrls.length, 50);
+          imageSize = cappedRemaining * 102400;
+        }
+
+        await checkLinks(result, scanStartTime);
+
+        await checkPluginAssets(result, currentFetchUrl, scanStartTime);
+
+        result.performance.loadTime = result.responseTime;
+        result.performance.pageSize = htmlSize + imageSize;
+
+        const mixed = checkMixedContent(html, currentFetchUrl);
+        result.mixedContent = mixed.hasMixed;
+        if (mixed.hasMixed) {
+          console.log(
+            `[PulseVault] Mixed content URLs:`,
+            mixed.urls.slice(0, 5),
+          );
+        }
+
+        detectJSErrors(html, result);
+
+        result.performance.score = calculatePerformanceScore(
+          result.performance.loadTime,
+          result.performance.pageSize,
+          result.responseTime,
         );
-        const cappedRemaining = Math.min(parseResult.imageUrls.length, 50);
-        imageSize = cappedRemaining * 102400;
+
+        calculateHealthScore(result);
+      } catch (fetchErr: any) {
+        console.error(
+          `[Scan] Fetch failed, marking offline: ${fetchErr.message}`,
+        );
+        result.status = "offline";
+        result.healthScore = 0;
+        result.httpStatus = 0;
       }
-
-      await checkLinks(result, scanStartTime);
-
-      await checkPluginAssets(result, currentFetchUrl, scanStartTime);
-
-      result.performance.loadTime = result.responseTime;
-      result.performance.pageSize = htmlSize + imageSize;
-
-      const mixed = checkMixedContent(html, currentFetchUrl);
-      result.mixedContent = mixed.hasMixed;
-      if (mixed.hasMixed) {
-        console.log(`[PulseVault] Mixed content URLs:`, mixed.urls.slice(0, 5));
-      }
-
-      detectJSErrors(html, result);
-
-      result.performance.score = calculatePerformanceScore(
-        result.performance.loadTime,
-        result.performance.pageSize,
-        result.responseTime,
-      );
-
-      calculateHealthScore(result);
 
       console.log(
         `[PulseVault] Final: status=${result.status}, health=${result.healthScore}, perf=${result.performance.score}, loadTime=${result.performance.loadTime}ms, pageSize=${formatBytes(result.performance.pageSize)}, links=${result.links.total}, broken=${result.links.broken}, protected=${result.links.protected}, plugins=${result.plugins.detected.length}, brokenPlugins=${result.plugins.broken.length}, sslValid=${result.ssl.valid}, sslDaysLeft=${result.ssl.daysLeft}, dnsIp=${result.dns.ip}, techStack=${result.techStack.detected.length}, spaCrashes=${result.spaCrashes}, runtimeErrors=${result.runtimeErrors.length}`,
@@ -857,38 +880,24 @@ export async function POST(req: NextRequest) {
                 });
 
                 console.log(`[Scan] 📧 Sending alert email to: ${userEmail}`);
-                if (result.status === "offline") {
-                  await sendSiteOfflineAlert({
-                    to: userEmail,
-                    userName,
-                    target: targetUrl,
-                    httpStatus: result.httpStatus,
-                    sslStatus: result.ssl.valid
-                      ? result.ssl.daysLeft < 30
-                        ? "expiring"
-                        : "valid"
-                      : "expired",
-                    sslDaysLeft: result.ssl.daysLeft,
-                    loadTime: result.performance.loadTime,
-                    timestamp: formattedTimestamp,
-                  });
-                } else {
-                  await sendHealthDropAlert({
-                    to: userEmail,
-                    userName,
-                    target: targetUrl,
-                    healthScore: result.healthScore,
-                    httpStatus: result.httpStatus,
-                    sslStatus: result.ssl.valid
-                      ? result.ssl.daysLeft < 30
-                        ? "expiring"
-                        : "valid"
-                      : "expired",
-                    sslDaysLeft: result.ssl.daysLeft,
-                    loadTime: result.performance.loadTime,
-                    timestamp: formattedTimestamp,
-                  });
-                }
+                await sendAlertEmail({
+                  to: userEmail,
+                  userName,
+                  alertType: alertData.type,
+                  severity: alertData.severity as any,
+                  message: alertData.message,
+                  target: targetUrl,
+                  timestamp: formattedTimestamp,
+                  healthScore: result.healthScore,
+                  httpStatus: result.httpStatus,
+                  sslStatus: result.ssl.valid
+                    ? result.ssl.daysLeft < 30
+                      ? "expiring"
+                      : "valid"
+                    : "expired",
+                  sslDaysLeft: result.ssl.daysLeft,
+                  loadTime: result.performance.loadTime,
+                });
                 console.log(`[Scan] ✅ Alert email sent to ${userEmail}`);
               } else {
                 console.log(

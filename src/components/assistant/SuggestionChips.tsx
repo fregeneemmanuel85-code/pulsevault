@@ -6,10 +6,10 @@ interface Props {
 }
 
 const SUGGESTIONS = [
-  "Why is my health score low?",
-  "How do I fix my SSL issue?",
-  "Analyze my websites",
-  "Explain my broken links",
+  "Check my website health",
+  "How to fix SSL issues?",
+  "Analyze all my sites",
+  "Explain broken links",
   "What should I fix first?",
 ];
 
