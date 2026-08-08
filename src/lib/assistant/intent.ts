@@ -70,6 +70,9 @@ const DETAILED_PATTERNS = [
   /why is my \w+ (low|bad|red|yellow|critical)/i,
   /what is wrong with/i,
   /what's wrong with/i,
+  /what website has/i,
+  /which (site|website) has/i,
+  /where is (this|that|the) code/i,
 ];
 
 const DEEP_CODE_PATTERNS = [
@@ -118,7 +121,7 @@ const CODE_PATTERNS = [
   /api route/i,
   /fix (this|my) (error|bug|issue)/i,
   /how do i (solve|fix)/i,
-  /(solve|fix) (this|it)/i,
+  /(solve|fix) (this|it|that|problem)/i,
   /code to (fix|solve)/i,
   /show me (how|the way) to (fix|solve)/i,
   /what'?s the (fix|solution|code)/i,
@@ -142,10 +145,44 @@ const CODE_PATTERNS = [
   /\bcode (now|up)\b/i,
   /\bcode me\b/i,
   /\bcode for this\b/i,
+  /\bdebug\b/i,
+  /\bbug in\b/i,
+  /\berror in\b/i,
+  /\btraceback\b/i,
+  /\bconsole\.(log|error)\b/i,
+  /\brefactor\b/i,
 ];
+
+// Detect raw pasted code snippets
+function looksLikePastedCode(message: string): boolean {
+  // Contains code block
+  if (/```[\s\S]*?```/.test(message)) return true;
+  // Contains function declaration
+  if (/\bfunction\s+\w+\s*\(/.test(message)) return true;
+  // Contains arrow function or const assignment with code structure
+  if (/\b(const|let|var)\s+\w+\s*=/.test(message) && /[{};]/.test(message))
+    return true;
+  // Contains imports/exports
+  if (/\b(import|export)\s+/.test(message)) return true;
+  // Contains class or interface
+  if (/\b(class|interface|type)\s+\w+/.test(message)) return true;
+  // Contains HTML tags
+  if (/<\/?[a-z][\s\S]*?>/.test(message) && message.includes(">")) return true;
+  return false;
+}
 
 export function classifyIntent(message: string): IntentResult {
   const lower = message.toLowerCase();
+
+  // Pasted code always = code fix mode
+  if (looksLikePastedCode(message)) {
+    return {
+      type: "code",
+      creditCost: 10,
+      label: "Code Fix",
+      skipKB: true,
+    };
+  }
 
   if (URL_REGEX.test(message) || DOMAIN_REGEX.test(message)) {
     return {
