@@ -31,7 +31,15 @@ export default function ChatWidget() {
   const [welcomeStep, setWelcomeStep] = useState(0);
   const [hasOpenedBefore, setHasOpenedBefore] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /* ── Auto-resize textarea ── */
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, [input]);
 
   /* ── Load persisted chat on mount ── */
   useEffect(() => {
@@ -65,8 +73,8 @@ export default function ChatWidget() {
   }, [messages, loading, welcomeStep]);
 
   useEffect(() => {
-    if (open && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 300);
+    if (open && textareaRef.current) {
+      setTimeout(() => textareaRef.current?.focus(), 300);
     }
   }, [open]);
 
@@ -441,22 +449,27 @@ export default function ChatWidget() {
                 disabled={loading}
               />
             )}
-            <div className="flex gap-2 mt-2">
-              <input
-                ref={inputRef}
+            <div className="flex gap-2 mt-2 items-end">
+              <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) =>
-                  e.key === "Enter" && !e.shiftKey && sendMessage()
-                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
                 placeholder="Ask about your dashboard..."
                 disabled={loading || showWelcome}
-                className="flex-1 min-w-0 bg-[#0f172a] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all duration-200"
+                rows={1}
+                className="flex-1 min-w-0 bg-[#0f172a] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all duration-200 resize-none overflow-hidden"
+                style={{ maxHeight: 120 }}
               />
               <button
                 onClick={() => sendMessage()}
                 disabled={loading || !input.trim() || showWelcome}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl disabled:opacity-40 disabled:hover:bg-indigo-600 transition-all duration-200 shrink-0 shadow-lg shadow-indigo-900/20"
+                className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl disabled:opacity-40 disabled:hover:bg-indigo-600 transition-all duration-200 shrink-0 shadow-lg shadow-indigo-900/20 mb-0.5"
               >
                 <Send size={16} />
               </button>
