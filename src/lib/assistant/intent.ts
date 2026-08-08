@@ -128,6 +128,20 @@ const CODE_PATTERNS = [
   /write (a |the )?(fix|solution)/i,
   /can you (fix|solve)/i,
   /need (code|script) (to|for)/i,
+  /\buse code\b/i,
+  /\bcan you code\b/i,
+  /\bcode please\b/i,
+  /\bshow code\b/i,
+  /\bi want code\b/i,
+  /\bi need code\b/i,
+  /\bneed code\b/i,
+  /\bwrite code\b/i,
+  /\bget code\b/i,
+  /\bmake code\b/i,
+  /\bproduce code\b/i,
+  /\bcode (now|up)\b/i,
+  /\bcode me\b/i,
+  /\bcode for this\b/i,
 ];
 
 export function classifyIntent(message: string): IntentResult {
