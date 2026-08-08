@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Shield, X, Send, Minus } from "lucide-react";
+import { Shield, X, Send, Minus, Maximize2, Minimize2 } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import CreditBadge from "./CreditBadge";
 import SuggestionChips from "./SuggestionChips";
 import ThinkingIndicator from "./ThinkingIndicator";
+import { handleSmallTalk } from "@/lib/assistant/small-talk";
 
 interface Message {
   role: "user" | "assistant";
@@ -20,6 +21,7 @@ const OPENED_KEY = "pv-assistant-opened";
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,7 +32,6 @@ export default function ChatWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  /* ── Load persisted chat on mount ── */
   useEffect(() => {
     const opened = localStorage.getItem(OPENED_KEY);
     setHasOpenedBefore(!!opened);
@@ -44,11 +45,10 @@ export default function ChatWidget() {
         }
       }
     } catch {
-      // ignore corrupt storage
+      // ignore
     }
   }, []);
 
-  /* ── Persist chat whenever it changes ── */
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -104,12 +104,28 @@ export default function ChatWidget() {
 
   const handleMinimize = () => {
     setOpen(false);
-    // messages are already persisted to localStorage via useEffect
+    setIsMaximized(false);
   };
 
   const sendMessage = async (textOverride?: string) => {
     const text = textOverride || input.trim();
     if (!text || loading) return;
+
+    // ── Small talk: local, no API, no credits ──
+    const smallTalk = handleSmallTalk(text);
+    if (smallTalk.handled) {
+      const userMsg: Message = { role: "user", text };
+      const assistantMsg: Message = {
+        role: "assistant",
+        text: smallTalk.response,
+        source: "knowledge-base",
+        creditCost: 0,
+        isNew: true,
+      };
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      if (!textOverride) setInput("");
+      return;
+    }
 
     const userMsg: Message = { role: "user", text };
     setMessages((prev) => [...prev, userMsg]);
@@ -167,6 +183,10 @@ export default function ChatWidget() {
       setLoading(false);
     }
   };
+
+  const panelClasses = isMaximized
+    ? "fixed inset-0 sm:inset-4 md:inset-6 sm:max-w-5xl sm:max-h-[85vh] sm:mx-auto sm:my-auto rounded-none sm:rounded-2xl"
+    : "fixed inset-0 sm:inset-auto sm:bottom-0 sm:right-0 sm:w-[400px] sm:h-[580px] rounded-none sm:rounded-2xl";
 
   return (
     <div className="fixed bottom-6 right-6 z-50 font-sans">
@@ -269,15 +289,15 @@ export default function ChatWidget() {
       ) : (
         <div
           className={`
-            fixed inset-0 sm:inset-auto sm:bottom-0 sm:right-0
-            sm:w-[400px] sm:h-[580px]
+            ${panelClasses}
             bg-[#0b0f19]
-            sm:rounded-2xl
             shadow-2xl
             border border-white/[0.06]
             flex flex-col
             overflow-hidden
             pv-panel-in
+            transition-all
+            duration-300
           `}
         >
           {/* Header */}
@@ -295,8 +315,19 @@ export default function ChatWidget() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <CreditBadge refreshKey={refreshKey} />
+              <button
+                onClick={() => setIsMaximized(!isMaximized)}
+                className="hover:bg-white/10 p-1.5 rounded-lg transition-colors duration-200 hidden sm:block"
+                title={isMaximized ? "Restore" : "Maximize"}
+              >
+                {isMaximized ? (
+                  <Minimize2 size={16} />
+                ) : (
+                  <Maximize2 size={16} />
+                )}
+              </button>
               <button
                 onClick={handleMinimize}
                 className="hover:bg-white/10 p-1.5 rounded-lg transition-colors duration-200"

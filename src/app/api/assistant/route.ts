@@ -1,32 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import "@/lib/firebase-admin";
-import { searchKnowledgeBase } from "@/lib/assistant-kb";
+import { getAuth } from "firebase-admin/auth";
 import {
   buildAssistantContext,
   contextToPrompt,
 } from "@/lib/assistant-context";
-import { getOrCreateCredits, deductCredits } from "@/lib/assistant-credits";
-import { classifyIntent } from "@/lib/assistant-router";
+import { searchKnowledgeBase } from "@/lib/assistant-kb";
+import { classifyIntent } from "@/lib/assistant/intent";
+import {
+  getOrCreateCredits,
+  deductCredits,
+  refundCredits,
+} from "@/lib/assistant-credits";
 import { askAIWithFallback } from "@/lib/assistant-ai";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) throw new Error("JWT_SECRET required");
+const CODE_SYSTEM_PROMPT = `You are PV Assistant, an expert developer. The user wants working code. Respond ONLY with the code inside markdown blocks, followed by a brief explanation.
+
+RULES:
+1. Provide complete, copy-pasteable code.
+2. Use markdown code blocks with the language specified.
+3. After the code, give a 2-3 sentence explanation of what it does.
+4. If the request is unclear, ask for clarification before writing code.
+5. Never omit imports or critical setup steps.
+
+RESPONSE FORMAT:
+\`\`\`language
+// complete code here
+\`\`\`
+
+**Explanation:** [2-3 sentences]`;
+
+const DEEP_CODE_SYSTEM_PROMPT = `You are PV Assistant, a senior full-stack engineer. The user wants a production-ready, complete implementation.
+
+RULES:
+1. Provide the FULL file contents — no placeholders, no "..." shortcuts.
+2. Include all imports, types, error handling, and comments.
+3. Use markdown code blocks with the language specified.
+4. After the code, give a brief architecture explanation.
+5. If multiple files are needed, label each block with the filename.
+
+RESPONSE FORMAT:
+\`\`\`language
+// filename: path/to/file.ext
+// complete production code
+\`\`\`
+
+**Architecture:** [brief explanation]`;
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get("token")?.value;
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+
     if (!token) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     let userId: string;
     try {
-      const verified = await jwtVerify(
-        token,
-        new TextEncoder().encode(JWT_SECRET),
-      );
-      userId = verified.payload.uid as string;
+      const decoded = await getAuth().verifyIdToken(token);
+      userId = decoded.uid;
     } catch {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
@@ -36,98 +68,107 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
-    // 1. Classify intent
     const intent = classifyIntent(message);
 
-    // Off-topic guard
+    // Off-topic
     if (intent.type === "offtopic") {
-      const credits = await getOrCreateCredits(userId).catch(() => null);
       return NextResponse.json({
         reply:
           "I only answer questions about your PulseVault dashboard. Ask me about your websites, health scores, alerts, or how to fix issues.",
+        source: "gemini",
         creditsUsed: 0,
-        source: "knowledge-base",
-        remainingCredits: credits?.remaining ?? 0,
       });
     }
 
-    // 2. Try Knowledge Base ONLY if allowed
+    // Check credits
+    const credits = await getOrCreateCredits(userId);
+    if (credits.remaining < intent.creditCost) {
+      return NextResponse.json({
+        reply: `You've used all your AI credits for today (${credits.dailyLimit}/${credits.dailyLimit}). Upgrade your plan or try again tomorrow.`,
+        source: "gemini",
+        creditsUsed: 0,
+      });
+    }
+
+    // Try knowledge base for simple questions
     if (!intent.skipKB) {
       const kb = searchKnowledgeBase(message);
       if (kb.found) {
-        const credits = await getOrCreateCredits(userId).catch(() => null);
         return NextResponse.json({
           reply: kb.answer,
-          creditsUsed: 0,
           source: "knowledge-base",
-          remainingCredits: credits?.remaining ?? 0,
+          creditsUsed: 0,
         });
       }
     }
 
-    // 3. Check credits
-    let credits;
-    try {
-      credits = await getOrCreateCredits(userId);
-    } catch (e: any) {
-      console.error("[Assistant] Credit check failed:", e.message);
+    // Deduct credits
+    const deducted = await deductCredits(userId, intent.creditCost);
+    if (!deducted) {
       return NextResponse.json({
-        reply: "I couldn't check your AI credits right now. Please try again.",
+        reply: "Failed to deduct credits. Please try again.",
+        source: "gemini",
         creditsUsed: 0,
-        source: "knowledge-base",
-        remainingCredits: 0,
       });
     }
 
-    if (credits.remaining < intent.creditCost) {
+    // Build context
+    const context = await buildAssistantContext(userId);
+    const contextPrompt = contextToPrompt(context);
+
+    // Choose system prompt based on intent
+    let systemPrompt: string;
+    if (intent.type === "code") {
+      systemPrompt = CODE_SYSTEM_PROMPT;
+    } else if (intent.type === "deep-code") {
+      systemPrompt = DEEP_CODE_SYSTEM_PROMPT;
+    } else {
+      systemPrompt = `You are PV Assistant, an expert DevOps and web performance analyst embedded inside PulseVault.
+
+RULES:
+1. Always cite specific data points from the context provided.
+2. Give actionable, step-by-step fix recommendations.
+3. Be concise. Use bullet points and numbered steps.
+4. If data is missing, say "I don't see that data in your dashboard yet."
+5. End every response with a Priority label: Low, Medium, High, or Critical.
+
+RESPONSE FORMAT:
+**Observation:** [What the data shows]
+**Root Cause:** [Why it's happening]
+**Fix Steps:**
+1. [Step]
+2. [Step]
+3. [Step]
+**Priority:** [Low / Medium / High / Critical]`;
+    }
+
+    // Call AI
+    const ai = await askAIWithFallback(
+      `${systemPrompt}\n\n${contextPrompt}`,
+      message,
+    );
+
+    if (ai.error || !ai.text) {
+      // Refund on failure
+      await refundCredits(userId, intent.creditCost);
       return NextResponse.json({
-        reply: `You don't have enough AI credits for a ${intent.label} (${intent.creditCost} credits needed). You have ${credits.remaining} left. Upgrade your plan or wait until midnight UTC for your daily reset.`,
+        reply:
+          ai.error ||
+          "AI providers are temporarily unavailable. Please try again in a moment.",
+        source: "gemini",
         creditsUsed: 0,
-        source: "knowledge-base",
-        remainingCredits: credits.remaining,
       });
-    }
-
-    // 4. Build context
-    let context: string;
-    try {
-      const ctx = await buildAssistantContext(userId);
-      context = contextToPrompt(ctx);
-    } catch (e: any) {
-      console.error("[Assistant] Context build failed:", e.message);
-      context = "User dashboard data temporarily unavailable.";
-    }
-
-    // 5. Call AI
-    const ai = await askAIWithFallback(context, message);
-
-    // 6. Deduct credits on success
-    if (ai.text && !ai.error) {
-      try {
-        await deductCredits(userId, intent.creditCost);
-      } catch (e: any) {
-        console.error("[Assistant] Credit deduction failed:", e.message);
-      }
-    }
-
-    // 7. Get updated credits
-    let updatedCredits;
-    try {
-      updatedCredits = await getOrCreateCredits(userId);
-    } catch {
-      updatedCredits = credits;
     }
 
     return NextResponse.json({
-      reply: ai.text || "I couldn't generate a response. Please try again.",
-      creditsUsed: ai.error ? 0 : intent.creditCost,
+      reply: ai.text,
       source: ai.source,
-      remainingCredits: updatedCredits.remaining,
+      creditsUsed: intent.creditCost,
     });
   } catch (err: any) {
-    console.error("[Assistant] Unhandled error:", err.message);
+    console.error("[Assistant API] Error:", err);
     return NextResponse.json(
-      { error: "Server error: " + err.message },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }

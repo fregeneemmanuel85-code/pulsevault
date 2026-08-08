@@ -49,6 +49,49 @@ export default function ChatMessage({
     return () => clearInterval(timer);
   }, [text, isNew, isUser, onAnimationComplete]);
 
+  function renderContent(content: string) {
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    const regex = /```(\w*)\n?([\s\S]*?)```/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(
+          <span key={`t-${lastIndex}`}>
+            {content.slice(lastIndex, match.index)}
+          </span>,
+        );
+      }
+
+      const [, lang, code] = match;
+      parts.push(
+        <div
+          key={`c-${match.index}`}
+          className="my-2.5 rounded-lg overflow-hidden border border-white/[0.08]"
+        >
+          {lang && (
+            <div className="bg-[#0f172a] px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-white/[0.06] flex items-center justify-between">
+              <span>{lang}</span>
+              <span className="text-[9px] text-slate-500">code</span>
+            </div>
+          )}
+          <pre className="bg-[#070d18] p-3 overflow-x-auto text-[11px] text-slate-300 font-mono leading-relaxed">
+            <code>{code.trim()}</code>
+          </pre>
+        </div>,
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push(<span key={`t-end`}>{content.slice(lastIndex)}</span>);
+    }
+
+    return parts.length > 0 ? parts : content;
+  }
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
       {!isUser && (
@@ -76,7 +119,7 @@ export default function ChatMessage({
             hyphens: "auto",
           }}
         >
-          {displayedText}
+          {renderContent(displayedText)}
         </div>
 
         {!isUser && showMeta && source && (

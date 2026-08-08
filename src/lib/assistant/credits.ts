@@ -54,6 +54,7 @@ export async function getOrCreateCredits(
   const data = snap.data() as CreditStatus;
   const today = todayStr();
 
+  // Lazy daily reset
   if (data.lastResetDate !== today) {
     const planSnap = await db
       .collection("users")
@@ -96,8 +97,13 @@ export async function deductCredits(
   const data = snap.data() as CreditStatus;
   const today = todayStr();
 
-  if (data.lastResetDate !== today) return false;
-  if (data.dailyUsed + amount > data.dailyLimit) return false;
+  if (data.lastResetDate !== today) {
+    return false;
+  }
+
+  if (data.dailyUsed + amount > data.dailyLimit) {
+    return false;
+  }
 
   await ref.update({
     dailyUsed: data.dailyUsed + amount,
