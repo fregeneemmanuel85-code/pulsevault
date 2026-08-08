@@ -5,13 +5,13 @@ export interface SmallTalkResult {
 
 const GREETINGS = /^(hi+|hello|hey|yo|hiya|howdy|greetings|what'?s up|sup)\b/i;
 const HOW_ARE_YOU = /how (are you|is it going|are things|have you been)\b/i;
-const THANKS = /(thank you|thanks|thx|appreciate it|thank you so much|ty)\b/i;
-const GOODBYE = /(bye|goodbye|see you|later|catch you|peace)\b/i;
+const THANKS = /\b(thank you|thanks|thx|appreciate it|thank you so much|ty)\b/i;
+const GOODBYE = /\b(bye|goodbye|see you|later|catch you|peace)\b/i;
 const TIME_GREETING = /good (morning|afternoon|evening|night)\b/i;
 const OKAY = /^(ok|okay|cool|nice|great|awesome|perfect|got it)\b/i;
 const WHO_ARE_YOU = /who (are you|is this)\b/i;
 const WHAT_CAN_YOU_DO = /what (can you do|do you do|are you capable of)\b/i;
-const LOVE = /(i love you|you'?re the best|you rock)\b/i;
+const LOVE = /\b(i love you|you'?re the best|you rock)\b/i;
 
 export function handleSmallTalk(message: string): SmallTalkResult {
   const lower = message.toLowerCase().trim();
