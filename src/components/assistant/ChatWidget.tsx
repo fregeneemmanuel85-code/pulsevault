@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { getAuth } from "firebase/auth";
 import { Shield, X, Send, Minus, Maximize2, Minimize2 } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import CreditBadge from "./CreditBadge";
@@ -32,6 +33,7 @@ export default function ChatWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /* ── Load persisted chat on mount ── */
   useEffect(() => {
     const opened = localStorage.getItem(OPENED_KEY);
     setHasOpenedBefore(!!opened);
@@ -45,10 +47,11 @@ export default function ChatWidget() {
         }
       }
     } catch {
-      // ignore
+      // ignore corrupt storage
     }
   }, []);
 
+  /* ── Persist chat whenever it changes ── */
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -111,7 +114,7 @@ export default function ChatWidget() {
     const text = textOverride || input.trim();
     if (!text || loading) return;
 
-    // ── Small talk: local, no API, no credits ──
+    // ── Small talk: handled locally, no API call, no credits ──
     const smallTalk = handleSmallTalk(text);
     if (smallTalk.handled) {
       const userMsg: Message = { role: "user", text };
@@ -133,9 +136,19 @@ export default function ChatWidget() {
     setLoading(true);
 
     try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      let token = "";
+      if (user) {
+        token = await user.getIdToken();
+      }
+
       const res = await fetch("/api/assistant", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
         body: JSON.stringify({ message: text }),
       });
 
