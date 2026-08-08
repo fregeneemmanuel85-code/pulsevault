@@ -122,7 +122,7 @@ export default function ChatWidget() {
     const text = textOverride || input.trim();
     if (!text || loading) return;
 
-    // ── Small talk: handled locally, no API call, no credits ──
+    // ── Small talk: local, no API, no credits ──
     const smallTalk = handleSmallTalk(text);
     if (smallTalk.handled) {
       const userMsg: Message = { role: "user", text };
@@ -135,6 +135,8 @@ export default function ChatWidget() {
       };
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       if (!textOverride) setInput("");
+      // Reset textarea height
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
       return;
     }
 
@@ -463,8 +465,13 @@ export default function ChatWidget() {
                 placeholder="Ask about your dashboard..."
                 disabled={loading || showWelcome}
                 rows={1}
-                className="flex-1 min-w-0 bg-[#0f172a] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all duration-200 resize-none overflow-hidden"
-                style={{ maxHeight: 120 }}
+                className="flex-1 min-w-0 bg-[#0f172a] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all duration-200 resize-none break-words"
+                style={{
+                  maxHeight: 120,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  overflowWrap: "break-word",
+                }}
               />
               <button
                 onClick={() => sendMessage()}

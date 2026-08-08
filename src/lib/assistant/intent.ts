@@ -58,6 +58,7 @@ const ANALYSIS_PATTERNS = [
   /overview/i,
   /health check/i,
   /tell me (about|the status of)/i,
+  /\breview this\b/i,
 ];
 
 const DETAILED_PATTERNS = [
@@ -73,6 +74,11 @@ const DETAILED_PATTERNS = [
   /what website has/i,
   /which (site|website) has/i,
   /where is (this|that|the) code/i,
+  /\bwhat'?s wrong\b/i,
+  /\bexplain this\b/i,
+  /\bteach me\b/i,
+  /\bcompare\b/i,
+  /\bbest practice\b/i,
 ];
 
 const DEEP_CODE_PATTERNS = [
@@ -151,22 +157,20 @@ const CODE_PATTERNS = [
   /\btraceback\b/i,
   /\bconsole\.(log|error)\b/i,
   /\brefactor\b/i,
+  /\bfix this\b/i,
+  /\boptimize this\b/i,
+  /\boptimize\b/i,
+  /\bmake it faster\b/i,
+  /\bclean up\b/i,
 ];
 
-// Detect raw pasted code snippets
 function looksLikePastedCode(message: string): boolean {
-  // Contains code block
   if (/```[\s\S]*?```/.test(message)) return true;
-  // Contains function declaration
   if (/\bfunction\s+\w+\s*\(/.test(message)) return true;
-  // Contains arrow function or const assignment with code structure
   if (/\b(const|let|var)\s+\w+\s*=/.test(message) && /[{};]/.test(message))
     return true;
-  // Contains imports/exports
   if (/\b(import|export)\s+/.test(message)) return true;
-  // Contains class or interface
   if (/\b(class|interface|type)\s+\w+/.test(message)) return true;
-  // Contains HTML tags
   if (/<\/?[a-z][\s\S]*?>/.test(message) && message.includes(">")) return true;
   return false;
 }
@@ -174,7 +178,6 @@ function looksLikePastedCode(message: string): boolean {
 export function classifyIntent(message: string): IntentResult {
   const lower = message.toLowerCase();
 
-  // Pasted code always = code fix mode
   if (looksLikePastedCode(message)) {
     return {
       type: "code",
