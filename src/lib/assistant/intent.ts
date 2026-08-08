@@ -68,7 +68,6 @@ const DETAILED_PATTERNS = [
   /detail/i,
   /breakdown/i,
   /why is my \w+ (low|bad|red|yellow|critical)/i,
-  /how do i fix (this|my|all)/i,
   /what is wrong with/i,
   /what's wrong with/i,
 ];
@@ -118,12 +117,22 @@ const CODE_PATTERNS = [
   /middleware/i,
   /api route/i,
   /fix (this|my) (error|bug|issue)/i,
+  /how do i (solve|fix)/i,
+  /(solve|fix) (this|it)/i,
+  /code to (fix|solve)/i,
+  /show me (how|the way) to (fix|solve)/i,
+  /what'?s the (fix|solution|code)/i,
+  /help me (fix|solve)/i,
+  /give me (the |a )?(fix|solution)/i,
+  /implement (a |the )?fix/i,
+  /write (a |the )?(fix|solution)/i,
+  /can you (fix|solve)/i,
+  /need (code|script) (to|for)/i,
 ];
 
 export function classifyIntent(message: string): IntentResult {
   const lower = message.toLowerCase();
 
-  // Contains a URL or specific domain? → Always use AI with context
   if (URL_REGEX.test(message) || DOMAIN_REGEX.test(message)) {
     return {
       type: "detailed",
@@ -133,7 +142,6 @@ export function classifyIntent(message: string): IntentResult {
     };
   }
 
-  // Off-topic guard
   for (const p of OFFTOPIC_PATTERNS) {
     if (p.test(lower)) {
       return {
@@ -145,7 +153,6 @@ export function classifyIntent(message: string): IntentResult {
     }
   }
 
-  // Report
   for (const p of REPORT_PATTERNS) {
     if (p.test(lower)) {
       return {
@@ -157,7 +164,6 @@ export function classifyIntent(message: string): IntentResult {
     }
   }
 
-  // Deep code (15 credits)
   for (const p of DEEP_CODE_PATTERNS) {
     if (p.test(lower)) {
       return {
@@ -169,7 +175,6 @@ export function classifyIntent(message: string): IntentResult {
     }
   }
 
-  // Code (10 credits)
   for (const p of CODE_PATTERNS) {
     if (p.test(lower)) {
       return {
@@ -181,7 +186,6 @@ export function classifyIntent(message: string): IntentResult {
     }
   }
 
-  // Analysis
   for (const p of ANALYSIS_PATTERNS) {
     if (p.test(lower)) {
       return {
@@ -193,7 +197,6 @@ export function classifyIntent(message: string): IntentResult {
     }
   }
 
-  // Detailed
   for (const p of DETAILED_PATTERNS) {
     if (p.test(lower)) {
       return {
@@ -205,7 +208,6 @@ export function classifyIntent(message: string): IntentResult {
     }
   }
 
-  // Simple (default) — allow KB
   return {
     type: "simple",
     creditCost: 1,
