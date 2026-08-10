@@ -139,7 +139,7 @@ export default function SupportPage() {
 
         {/* Email Support */}
         <a
-          href="mailto:pulsevault.io@gmail.com"
+          href="mailto:support.pulsevault@gmail.com"
           className="bg-white dark:bg-slate-900 rounded-2xl border dark:border-slate-700 p-4 md:p-5 flex flex-col gap-3 no-underline hover:shadow-md transition-shadow cursor-pointer"
         >
           <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-xl w-fit">
@@ -150,7 +150,7 @@ export default function SupportPage() {
               Email Support
             </h3>
             <p className="text-gray-500 dark:text-slate-400 text-sm">
-              pulsevault.io@gmail.com
+              support.pulsevault@gmail.com
             </p>
           </div>
         </a>
