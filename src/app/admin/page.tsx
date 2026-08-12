@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 import {
   Activity,
@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import { getAuditLogs, getAdminStats, type AuditLog } from "@/lib/audit";
+import { auth } from "@/lib/firebase-client";
 import Link from "next/link";
 
 export default function AdminDashboard() {
@@ -26,7 +27,6 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const auth = getAuth();
     const unsub = onAuthStateChanged(auth, async (user) => {
       try {
         if (!user) {

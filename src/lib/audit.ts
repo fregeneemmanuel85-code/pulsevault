@@ -1,5 +1,4 @@
 import {
-  getFirestore,
   collection,
   addDoc,
   query,
@@ -7,7 +6,7 @@ import {
   limit,
   getDocs,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { auth, db } from "@/lib/firebase-client";
 
 export type AuditAction = "login" | "logout" | "page_view" | "signup";
 
@@ -29,9 +28,7 @@ export async function logActivity(
   page?: string,
   metadata?: Record<string, any>,
 ) {
-  const auth = getAuth();
   const user = auth.currentUser;
-  const db = getFirestore();
 
   if (page?.startsWith("/admin")) return;
 
@@ -59,7 +56,6 @@ export async function getAuditLogs(
     hours?: number;
   } = {},
 ) {
-  const db = getFirestore();
   const { action, userId, limitCount = 100, hours } = options;
 
   const q = query(
@@ -82,8 +78,6 @@ export async function getAuditLogs(
 }
 
 export async function getAdminStats() {
-  const db = getFirestore();
-
   const allSnap = await getDocs(
     query(
       collection(db, "auditLogs"),
