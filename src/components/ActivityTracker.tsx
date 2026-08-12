@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { logActivity } from "@/lib/audit";
@@ -11,10 +11,11 @@ export default function ActivityTracker({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const loggedInitial = useRef(false);
 
   // Track page views
   useEffect(() => {
-    if (!pathname) return;
+    if (!pathname || pathname.startsWith("/admin")) return;
     logActivity("page_view", pathname);
   }, [pathname]);
 
@@ -22,7 +23,8 @@ export default function ActivityTracker({
   useEffect(() => {
     const auth = getAuth();
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      if (user && !loggedInitial.current) {
+        loggedInitial.current = true;
         logActivity("login", pathname || "/", {
           displayName: user.displayName,
           photoURL: user.photoURL,

@@ -21,41 +21,56 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState<(AuditLog & { id: string })[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "login" | "page_view">("all");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     const auth = getAuth();
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
+      try {
+        if (!user) {
+          setIsAdmin(false);
+          setLoading(false);
+          return;
+        }
 
-      // ─── PRODUCTION ADMIN CHECK ───
-      // Checks /admins/{uid} collection — fastest & cleanest
-      const db = getFirestore();
-      const adminSnap = await getDoc(doc(db, "admins", user.uid));
+        const db = getFirestore();
+        const adminSnap = await getDoc(doc(db, "admins", user.uid));
 
-      if (adminSnap.exists()) {
-        setIsAdmin(true);
-        loadData();
-      } else {
+        if (adminSnap.exists()) {
+          setIsAdmin(true);
+          await loadData();
+        } else {
+          setIsAdmin(false);
+          setLoading(false);
+        }
+      } catch (err: any) {
+        console.error("[Admin] Auth check failed:", err);
+        setError(err.message || "Failed to verify admin status");
         setIsAdmin(false);
+        setLoading(false);
       }
     });
     return () => unsub();
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
-    const [logData, statData] = await Promise.all([
-      getAuditLogs({ limitCount: 200 }),
-      getAdminStats(),
-    ]);
-    setLogs(logData as (AuditLog & { id: string })[]);
-    setStats(statData);
-    setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const [logData, statData] = await Promise.all([
+        getAuditLogs({ limitCount: 200 }),
+        getAdminStats(),
+      ]);
+      setLogs(logData as (AuditLog & { id: string })[]);
+      setStats(statData);
+    } catch (err: any) {
+      console.error("[Admin] Load data failed:", err);
+      setError(err.message || "Failed to load admin data");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredLogs = logs.filter((log) => {
@@ -71,6 +86,35 @@ export default function AdminDashboard() {
     }
     return true;
   });
+
+  if (error) {
+    return (
+      <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
+        <AlertTriangle
+          size={48}
+          style={{ color: "#ef4444", margin: "0 auto 1rem" }}
+        />
+        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#0f172a" }}>
+          Something went wrong
+        </h1>
+        <p style={{ color: "#64748b", marginTop: "0.5rem" }}>{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            marginTop: "1rem",
+            padding: "0.5rem 1rem",
+            backgroundColor: "#2563eb",
+            color: "white",
+            border: "none",
+            borderRadius: "0.5rem",
+            cursor: "pointer",
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (isAdmin === false) {
     return (
