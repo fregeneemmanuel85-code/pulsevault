@@ -69,6 +69,151 @@ function getPriorityConfig(priority: PriorityLevel) {
   };
 }
 
+/* ─── ISSUES BAR CHART ─── */
+function IssuesBarChart({ websites }: { websites: Website[] }) {
+  const data = [
+    {
+      label: "Broken Links",
+      value: websites.reduce((sum, w) => sum + (w.brokenLinks || 0), 0),
+      color: "#ef4444",
+    },
+    {
+      label: "Broken Plugins",
+      value: websites.reduce((sum, w) => sum + (w.brokenPlugins || 0), 0),
+      color: "#f97316",
+    },
+    {
+      label: "JS Errors",
+      value: websites.reduce((sum, w) => sum + (w.jsErrors || 0), 0),
+      color: "#eab308",
+    },
+    {
+      label: "Broken Forms",
+      value: websites.reduce(
+        (sum, w) =>
+          sum +
+          ((w.totalForms || 0) > 0 && w.formsWorking === false
+            ? w.totalForms || 0
+            : 0),
+        0,
+      ),
+      color: "#8b5cf6",
+    },
+    {
+      label: "Mixed Content",
+      value: websites.filter((w) => w.mixedContent).length,
+      color: "#ec4899",
+    },
+    {
+      label: "SSL Issues",
+      value: websites.filter((w) => w.ssl === "expired" || w.ssl === "expiring")
+        .length,
+      color: "#dc2626",
+    },
+  ].filter((d) => d.value > 0);
+
+  const max = Math.max(...data.map((d) => d.value), 1);
+
+  if (data.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--bg-card)",
+        borderRadius: "1rem",
+        border: "1px solid var(--border-color)",
+        padding: "clamp(1rem, 3vw, 1.25rem)",
+      }}
+    >
+      <h2
+        style={{
+          fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+          fontWeight: "600",
+          color: "var(--text-primary)",
+          marginBottom: "1rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+        }}
+      >
+        <Activity
+          style={{
+            width: "clamp(1rem, 2.5vw, 1.25rem)",
+            height: "clamp(1rem, 2.5vw, 1.25rem)",
+            color: "#2563eb",
+            flexShrink: 0,
+          }}
+        />
+        Issues Detected
+      </h2>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: "clamp(0.5rem, 2vw, 1rem)",
+          height: "clamp(140px, 25vw, 180px)",
+          paddingBottom: "1.5rem",
+          position: "relative",
+        }}
+      >
+        {data.map((item) => {
+          const barHeight = (item.value / max) * 100;
+          return (
+            <div
+              key={item.label}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: "0.375rem",
+                minWidth: 0,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "clamp(0.6875rem, 1.5vw, 0.75rem)",
+                  fontWeight: "700",
+                  color: item.color,
+                }}
+              >
+                {item.value}
+              </span>
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: "48px",
+                  height: `${barHeight}%`,
+                  minHeight: "4px",
+                  backgroundColor: item.color,
+                  borderRadius: "0.375rem 0.375rem 0 0",
+                  transition: "height 0.5s ease-out",
+                  opacity: 0.85,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
+                  color: "var(--text-muted)",
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  width: "100%",
+                }}
+              >
+                {item.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -730,6 +875,9 @@ export default function DashboardPage() {
           );
         })}
       </div>
+
+      {/* Issues Bar Chart */}
+      <IssuesBarChart websites={websites} />
 
       {/* DNS Monitor */}
       <DnsMonitor websites={websites} loading={loading} />
