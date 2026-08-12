@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import ToastProvider from "@/components/ToastProvider";
+import ActivityTracker from "@/components/ActivityTracker";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -110,7 +111,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ToastProvider>
           <GoogleAnalytics />
-          {children}
+          <ActivityTracker>{children}</ActivityTracker>
         </ToastProvider>
       </body>
     </html>
