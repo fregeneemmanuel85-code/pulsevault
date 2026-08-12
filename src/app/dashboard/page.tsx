@@ -154,7 +154,6 @@ function IssuesBarChart({ websites }: { websites: Website[] }) {
           gap: "clamp(0.5rem, 2vw, 1rem)",
           height: "clamp(140px, 25vw, 180px)",
           paddingBottom: "1.5rem",
-          position: "relative",
         }}
       >
         {data.map((item) => {
@@ -170,6 +169,7 @@ function IssuesBarChart({ websites }: { websites: Website[] }) {
                 justifyContent: "flex-end",
                 gap: "0.375rem",
                 minWidth: 0,
+                height: "100%", // ← FIX: gives the bar a height reference
               }}
             >
               <span
@@ -186,7 +186,7 @@ function IssuesBarChart({ websites }: { websites: Website[] }) {
                   width: "100%",
                   maxWidth: "48px",
                   height: `${barHeight}%`,
-                  minHeight: "4px",
+                  minHeight: barHeight > 0 ? "4px" : "0px",
                   backgroundColor: item.color,
                   borderRadius: "0.375rem 0.375rem 0 0",
                   transition: "height 0.5s ease-out",
