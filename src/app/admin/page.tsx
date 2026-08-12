@@ -12,13 +12,22 @@ import {
   AlertTriangle,
   Loader2,
   Search,
+  Lock,
 } from "lucide-react";
 import { getAuditLogs, getAdminStats, type AuditLog } from "@/lib/audit";
 import { auth } from "@/lib/firebase-client";
 import Link from "next/link";
 
+// ─── HARDCODED ADMIN PASSWORD ───
+// Change this to whatever you want. Keep it secret.
+const ADMIN_PASSWORD = "pulsevault2026";
+
 export default function AdminDashboard() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+
   const [logs, setLogs] = useState<(AuditLog & { id: string })[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +35,7 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState<"all" | "login" | "page_view">("all");
   const [search, setSearch] = useState("");
 
+  // ─── AUTH + ADMIN CHECK ───
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       try {
@@ -40,11 +50,10 @@ export default function AdminDashboard() {
 
         if (adminSnap.exists()) {
           setIsAdmin(true);
-          await loadData();
         } else {
           setIsAdmin(false);
-          setLoading(false);
         }
+        setLoading(false);
       } catch (err: any) {
         console.error("[Admin] Auth check failed:", err);
         setError(err.message || "Failed to verify admin status");
@@ -54,6 +63,13 @@ export default function AdminDashboard() {
     });
     return () => unsub();
   }, []);
+
+  // ─── LOAD DATA ONLY AFTER PASSWORD VERIFIED ───
+  useEffect(() => {
+    if (isAdmin && passwordVerified) {
+      loadData();
+    }
+  }, [isAdmin, passwordVerified]);
 
   const loadData = async () => {
     try {
@@ -73,6 +89,17 @@ export default function AdminDashboard() {
     }
   };
 
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === ADMIN_PASSWORD) {
+      setPasswordVerified(true);
+      setPasswordError(false);
+    } else {
+      setPasswordError(true);
+      setPasswordInput("");
+    }
+  };
+
   const filteredLogs = logs.filter((log) => {
     if (filter !== "all" && log.action !== filter) return false;
     if (search) {
@@ -87,6 +114,7 @@ export default function AdminDashboard() {
     return true;
   });
 
+  // ─── ERROR STATE ───
   if (error) {
     return (
       <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
@@ -116,6 +144,7 @@ export default function AdminDashboard() {
     );
   }
 
+  // ─── ACCESS DENIED ───
   if (isAdmin === false) {
     return (
       <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
@@ -144,7 +173,8 @@ export default function AdminDashboard() {
     );
   }
 
-  if (isAdmin === null || loading) {
+  // ─── LOADING ───
+  if (isAdmin === null || (isAdmin && passwordVerified && loading)) {
     return (
       <div
         style={{
@@ -162,6 +192,119 @@ export default function AdminDashboard() {
     );
   }
 
+  // ─── PASSWORD GATE ───
+  if (isAdmin && !passwordVerified) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "80vh",
+          padding: "1rem",
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: "white",
+            borderRadius: "1rem",
+            border: "1px solid #e2e8f0",
+            padding: "clamp(1.5rem, 4vw, 2rem)",
+            width: "100%",
+            maxWidth: "24rem",
+            boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+          }}
+        >
+          <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+            <div
+              style={{
+                width: "3rem",
+                height: "3rem",
+                borderRadius: "0.75rem",
+                backgroundColor: "rgba(37,99,235,0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 1rem",
+              }}
+            >
+              <Lock size={24} style={{ color: "#2563eb" }} />
+            </div>
+            <h2
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: 700,
+                color: "#0f172a",
+                marginBottom: "0.25rem",
+              }}
+            >
+              Admin Access
+            </h2>
+            <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
+              Enter the admin password to continue
+            </p>
+          </div>
+
+          <form
+            onSubmit={handlePasswordSubmit}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
+            <div>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => {
+                  setPasswordInput(e.target.value);
+                  setPasswordError(false);
+                }}
+                placeholder="Enter password"
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem",
+                  border: `1px solid ${passwordError ? "#ef4444" : "#e2e8f0"}`,
+                  borderRadius: "0.5rem",
+                  fontSize: "0.875rem",
+                  backgroundColor: "white",
+                  color: "#0f172a",
+                  boxSizing: "border-box",
+                }}
+              />
+              {passwordError && (
+                <p
+                  style={{
+                    color: "#ef4444",
+                    fontSize: "0.75rem",
+                    margin: "0.375rem 0 0 0",
+                  }}
+                >
+                  Incorrect password. Try again.
+                </p>
+              )}
+            </div>
+            <button
+              type="submit"
+              style={{
+                width: "100%",
+                padding: "0.625rem",
+                backgroundColor: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: "0.5rem",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Unlock Dashboard
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── MAIN DASHBOARD ───
   return (
     <div
       style={{
@@ -402,7 +545,10 @@ export default function AdminDashboard() {
           >
             <thead>
               <tr
-                style={{ borderBottom: "2px solid #e2e8f0", textAlign: "left" }}
+                style={{
+                  borderBottom: "2px solid #e2e8f0",
+                  textAlign: "left",
+                }}
               >
                 <th
                   style={{
