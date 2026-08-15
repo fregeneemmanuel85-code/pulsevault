@@ -7,7 +7,6 @@ if (!JWT_SECRET) {
   throw new Error("JWT_SECRET environment variable is required");
 }
 
-// Convert string secret to Uint8Array for jose
 const getSecret = () => new TextEncoder().encode(JWT_SECRET);
 
 export async function middleware(request: NextRequest) {
@@ -16,12 +15,9 @@ export async function middleware(request: NextRequest) {
 
   console.log("[Middleware]", path, "Token present:", !!token);
 
-  if (path === "/") {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
   const isAuthPage = path === "/login" || path === "/register";
-  const isProtected = path.startsWith("/dashboard");
+  const isProtected =
+    path.startsWith("/dashboard") || path.startsWith("/admin");
 
   let isValid = false;
   if (token) {
@@ -35,11 +31,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Block protected routes if not logged in
   if (!isValid && isProtected) {
     console.log("[Middleware] Redirecting to /login (no valid token)");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  // Redirect logged-in users away from auth pages
   if (isValid && isAuthPage) {
     console.log("[Middleware] Redirecting to /dashboard (already logged in)");
     return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -49,5 +47,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*", "/login", "/register"],
+  matcher: ["/", "/dashboard/:path*", "/admin/:path*", "/login", "/register"],
 };
