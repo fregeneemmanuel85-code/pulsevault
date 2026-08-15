@@ -31,21 +31,18 @@ export async function POST(request: Request) {
     const status = res.status;
     const isOnline = status >= 200 && status < 400;
 
-    // Simple SSL check (if HTTPS)
+    // SSL check
     let sslValid = false;
-    let sslDaysLeft = 0;
     try {
       const urlObj = new URL(target);
       if (urlObj.protocol === "https:") {
-        // We can't inspect the cert from edge fetch easily,
-        // so we infer from successful HTTPS fetch
         sslValid = true;
       }
     } catch {
       sslValid = false;
     }
 
-    // Simple broken link check (parse HTML for <a> tags, fetch a sample)
+    // Broken link check
     let brokenLinks = 0;
     let totalLinks = 0;
     try {
@@ -59,7 +56,6 @@ export async function POST(request: Request) {
         .filter((href) => href.startsWith("http"));
 
       totalLinks = links.length;
-      // Only test first 5 links to keep it fast
       const sample = links.slice(0, 5);
       const linkChecks = await Promise.all(
         sample.map(async (link) => {
@@ -79,16 +75,32 @@ export async function POST(request: Request) {
       // ignore
     }
 
-    // Calculate a simple health score
+    // ─── CORRECTED HEALTH SCORE ───
     let healthScore = 100;
-    if (!isOnline) healthScore = 0;
-    else {
-      if (responseTime > 3000) healthScore -= 30;
-      else if (responseTime > 1000) healthScore -= 15;
-      if (!sslValid && target.startsWith("https")) healthScore -= 25;
-      if (brokenLinks > 0) healthScore -= Math.min(brokenLinks * 10, 30);
+
+    if (!isOnline) {
+      healthScore = 0;
+    } else {
+      // Speed penalties
+      if (responseTime > 5000) healthScore -= 35;
+      else if (responseTime > 3000) healthScore -= 25;
+      else if (responseTime > 1000) healthScore -= 10;
+
+      // SSL penalty
+      if (!sslValid && target.startsWith("https")) healthScore -= 20;
+
+      // Broken links (heavier penalty)
+      if (brokenLinks > 0) {
+        healthScore -= Math.min(brokenLinks * 15, 45);
+      }
+
+      // If no links found at all, slight penalty (SPA or blocked)
+      if (totalLinks === 0) {
+        healthScore -= 10;
+      }
     }
-    healthScore = Math.max(0, healthScore);
+
+    healthScore = Math.max(0, Math.min(100, healthScore));
 
     return NextResponse.json({
       status: isOnline ? "healthy" : "offline",
@@ -97,7 +109,7 @@ export async function POST(request: Request) {
       httpStatus: status,
       ssl: {
         valid: sslValid,
-        daysLeft: sslValid ? 90 : 0, // placeholder; real cert check needs server-side puppeteer
+        daysLeft: sslValid ? 90 : 0,
       },
       links: {
         broken: brokenLinks,

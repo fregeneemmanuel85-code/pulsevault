@@ -14,6 +14,7 @@ import {
   Mail,
 } from "lucide-react";
 import HeroChecker from "@/components/HeroChecker";
+import Logo from "@/components/Logo";
 
 export const metadata: Metadata = {
   title: {
@@ -40,9 +41,7 @@ export const metadata: Metadata = {
   creator: "PulseVault",
   publisher: "PulseVault",
   metadataBase: new URL("https://pulsevault.website"),
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
   category: "Technology",
   openGraph: {
     title: "PulseVault — Is Your Website Working Right Now?",
@@ -80,9 +79,7 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  verification: {
-    google: "your-google-verification-code",
-  },
+  verification: { google: "your-google-verification-code" },
 };
 
 const plans = [
@@ -92,10 +89,22 @@ const plans = [
     period: "forever",
     desc: "For personal sites & portfolios",
     features: [
-      "2 websites",
-      "30-min checks",
-      "Email alerts",
-      "Basic dashboard",
+      "2 websites monitoring",
+      "30-minute check interval",
+      "Uptime monitoring",
+      "SSL certificate monitoring",
+      "DNS monitoring",
+      "SEO monitoring",
+      "Domain expiration monitoring",
+      "API health checks",
+      "Form validation checks",
+      "JavaScript error detection",
+      "Plugin failure detection",
+      "HTTP 4xx/5xx detection",
+      "AI Assistant: 100 credits/day",
+      "In-app alerts only",
+      "Health score tracking (0-100)",
+      "Performance insights",
     ],
   },
   {
@@ -104,10 +113,15 @@ const plans = [
     period: "month",
     desc: "For freelancers & small teams",
     features: [
-      "5 websites",
-      "15-min checks",
-      "Email + in-app alerts",
-      "Daily summaries",
+      "5 websites monitoring",
+      "15-minute check interval",
+      "All Free features",
+      "SEO monitoring",
+      "Domain expiration monitoring",
+      "Email alerts",
+      "Daily/weekly summaries",
+      "AI Assistant: 500 credits/day",
+      "Incident history tracking",
     ],
   },
   {
@@ -116,11 +130,13 @@ const plans = [
     period: "month",
     desc: "For growing businesses",
     features: [
-      "30 websites",
-      "5-min checks",
-      "Health scores",
-      "Priority queue",
-      "Performance insights",
+      "30 websites monitoring",
+      "5-minute check interval",
+      "All Starter features",
+      "Priority monitoring queue",
+      "AI Assistant: 1,000 credits/day",
+      "Advanced reporting",
+      "Faster detection",
     ],
     popular: true,
   },
@@ -130,12 +146,13 @@ const plans = [
     period: "month",
     desc: "For agencies & large orgs",
     features: [
-      "100 websites",
-      "1-min checks",
-      "Team collaboration",
-      "Shared dashboards",
-      "Role-based access",
-      "White-label reports",
+      "100 websites monitoring",
+      "1-minute check interval",
+      "All Pro features",
+      "Advanced reporting",
+      "AI Assistant: 10,000 credits/day",
+      "Priority AI queue",
+      "White Label",
     ],
   },
 ];
@@ -166,6 +183,139 @@ const faqs = [
 export default function LandingPage() {
   return (
     <>
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(2deg); }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+          50% { box-shadow: 0 0 20px 8px rgba(37, 99, 235, 0.15); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes resultSlideIn {
+          from { opacity: 0; transform: translateY(20px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          opacity: 0;
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.6s ease forwards;
+          opacity: 0;
+        }
+        .animate-scale-in {
+          animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          opacity: 0;
+        }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+        .delay-400 { animation-delay: 0.4s; }
+        .delay-500 { animation-delay: 0.5s; }
+        .delay-600 { animation-delay: 0.6s; }
+        .delay-700 { animation-delay: 0.7s; }
+        .delay-800 { animation-delay: 0.8s; }
+        
+        .card-3d {
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+          transform-style: preserve-3d;
+          perspective: 1000px;
+        }
+        .card-3d:hover {
+          transform: translateY(-8px) rotateX(2deg) rotateY(-2deg) translateZ(20px);
+          box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.15);
+        }
+        
+        .pricing-3d {
+          transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
+          transform-style: preserve-3d;
+        }
+        .pricing-3d:hover {
+          transform: translateY(-12px) translateZ(30px) scale(1.02);
+          box-shadow: 0 30px 60px -15px rgba(37, 99, 235, 0.2);
+        }
+        
+        .btn-3d {
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          transform-style: preserve-3d;
+        }
+        .btn-3d:hover {
+          transform: translateY(-2px) translateZ(10px);
+          box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.4);
+        }
+        .btn-3d:active {
+          transform: translateY(0) translateZ(0);
+        }
+        
+        .float-orb {
+          animation: float 6s ease-in-out infinite;
+        }
+        .float-orb-delayed {
+          animation: float 8s ease-in-out infinite;
+          animation-delay: -2s;
+        }
+        
+        .shimmer-text {
+          background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 50%, #60a5fa 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 3s linear infinite;
+        }
+        
+        .nav-link {
+          color: #94a3b8;
+          text-decoration: none;
+          font-weight: 500;
+          font-size: clamp(0.75rem, 2vw, 0.875rem);
+          white-space: nowrap;
+          transition: color 0.2s;
+        }
+        .nav-link:hover { color: #f1f5f9; }
+        
+        .footer-link {
+          color: #64748b;
+          text-decoration: none;
+          font-size: clamp(0.75rem, 2vw, 0.875rem);
+          transition: color 0.2s;
+        }
+        .footer-link:hover { color: #f1f5f9; }
+        
+        .cta-banner {
+          transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px);
+          transition: transform 0.5s ease;
+        }
+        .cta-banner:hover {
+          transform: perspective(1000px) rotateX(2deg) rotateY(-1deg) translateZ(20px);
+        }
+
+        @media (max-width: 640px) {
+          .hero-grid { grid-template-columns: 1fr !important; }
+          .feature-grid { grid-template-columns: 1fr !important; }
+          .pricing-grid { grid-template-columns: 1fr !important; }
+          .steps-grid { grid-template-columns: 1fr !important; }
+          .nav-links { display: none !important; }
+        }
+      `}</style>
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -177,11 +327,7 @@ export default function LandingPage() {
                 name: "PulseVault",
                 applicationCategory: "WebApplication",
                 operatingSystem: "Any",
-                offers: {
-                  "@type": "Offer",
-                  price: "0",
-                  priceCurrency: "NGN",
-                },
+                offers: { "@type": "Offer", price: "0", priceCurrency: "NGN" },
                 aggregateRating: {
                   "@type": "AggregateRating",
                   ratingValue: "4.8",
@@ -205,10 +351,7 @@ export default function LandingPage() {
                 mainEntity: faqs.map((f) => ({
                   "@type": "Question",
                   name: f.q,
-                  acceptedAnswer: {
-                    "@type": "Answer",
-                    text: f.a,
-                  },
+                  acceptedAnswer: { "@type": "Answer", text: f.a },
                 })),
               },
               {
@@ -225,9 +368,78 @@ export default function LandingPage() {
           }),
         }}
       />
-      <div style={{ minHeight: "100vh", backgroundColor: "#020617" }}>
+
+      <div
+        style={{
+          minHeight: "100vh",
+          backgroundColor: "#020617",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        {/* Animated background orbs */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            overflow: "hidden",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        >
+          <div
+            className="float-orb"
+            style={{
+              position: "absolute",
+              top: "10%",
+              left: "10%",
+              width: "300px",
+              height: "300px",
+              background:
+                "radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%)",
+              borderRadius: "50%",
+              filter: "blur(40px)",
+            }}
+          />
+          <div
+            className="float-orb-delayed"
+            style={{
+              position: "absolute",
+              top: "60%",
+              right: "5%",
+              width: "400px",
+              height: "400px",
+              background:
+                "radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)",
+              borderRadius: "50%",
+              filter: "blur(60px)",
+            }}
+          />
+          <div
+            className="float-orb"
+            style={{
+              position: "absolute",
+              bottom: "10%",
+              left: "40%",
+              width: "250px",
+              height: "250px",
+              background:
+                "radial-gradient(circle, rgba(37,99,235,0.05) 0%, transparent 70%)",
+              borderRadius: "50%",
+              filter: "blur(50px)",
+              animationDelay: "-4s",
+            }}
+          />
+        </div>
+
         {/* Navigation */}
-        <nav style={{ borderBottom: "1px solid rgba(51, 65, 85, 0.5)" }}>
+        <nav
+          style={{
+            borderBottom: "1px solid rgba(51, 65, 85, 0.5)",
+            position: "relative",
+            zIndex: 10,
+          }}
+        >
           <div
             style={{
               maxWidth: "80rem",
@@ -244,42 +456,14 @@ export default function LandingPage() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.75rem",
                 minWidth: 0,
+                flexShrink: 0,
               }}
             >
-              <div
-                style={{
-                  width: "clamp(2rem, 6vw, 2.5rem)",
-                  height: "clamp(2rem, 6vw, 2.5rem)",
-                  backgroundColor: "#1d4ed8",
-                  borderRadius: "0.75rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Zap
-                  style={{
-                    width: "clamp(1.25rem, 4vw, 1.5rem)",
-                    height: "clamp(1.25rem, 4vw, 1.5rem)",
-                    color: "white",
-                  }}
-                />
-              </div>
-              <span
-                style={{
-                  fontSize: "clamp(1rem, 3vw, 1.25rem)",
-                  fontWeight: "700",
-                  color: "#f1f5f9",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                PulseVault
-              </span>
+              <Logo variant="light" size="small" showTagline={false} />
             </div>
             <div
+              className="nav-links"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -287,20 +471,12 @@ export default function LandingPage() {
                 flexShrink: 0,
               }}
             >
-              <Link
-                href="/login"
-                style={{
-                  color: "#94a3b8",
-                  textDecoration: "none",
-                  fontWeight: "500",
-                  fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <Link href="/login" className="nav-link">
                 Sign In
               </Link>
               <Link
                 href="/register"
+                className="btn-3d"
                 style={{
                   backgroundColor: "#1d4ed8",
                   color: "white",
@@ -311,6 +487,7 @@ export default function LandingPage() {
                   fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                   textDecoration: "none",
                   whiteSpace: "nowrap",
+                  display: "inline-block",
                 }}
               >
                 Get Started
@@ -324,12 +501,15 @@ export default function LandingPage() {
           style={{
             padding:
               "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem) clamp(4rem, 10vw, 6rem)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div
             style={{ maxWidth: "56rem", margin: "0 auto", textAlign: "center" }}
           >
             <div
+              className="animate-fade-in-up"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -351,11 +531,13 @@ export default function LandingPage() {
                   backgroundColor: "#3b82f6",
                   borderRadius: "50%",
                   flexShrink: 0,
+                  animation: "pulse-glow 2s ease-in-out infinite",
                 }}
               />
               Free instant website health checks
             </div>
             <h1
+              className="animate-fade-in-up delay-100"
               style={{
                 fontSize: "clamp(1.75rem, 6vw, 3rem)",
                 fontWeight: "800",
@@ -365,10 +547,11 @@ export default function LandingPage() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Is your website <span style={{ color: "#3b82f6" }}>working</span>{" "}
+              Is your website <span className="shimmer-text">working</span>{" "}
               right now?
             </h1>
             <p
+              className="animate-fade-in-up delay-200"
               style={{
                 fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
                 color: "#64748b",
@@ -384,11 +567,12 @@ export default function LandingPage() {
               you never get caught off guard.
             </p>
 
-            {/* FREE CHECKER TOOL */}
-            <HeroChecker />
+            <div className="animate-fade-in-up delay-300">
+              <HeroChecker />
+            </div>
 
-            {/* Trust badges */}
             <div
+              className="animate-fade-in delay-500"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -432,6 +616,8 @@ export default function LandingPage() {
           style={{
             padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
             backgroundColor: "rgba(15, 23, 42, 0.4)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div style={{ maxWidth: "64rem", margin: "0 auto" }}>
@@ -442,6 +628,7 @@ export default function LandingPage() {
               }}
             >
               <h2
+                className="animate-fade-in-up"
                 style={{
                   fontSize: "clamp(1.25rem, 4vw, 1.875rem)",
                   fontWeight: "700",
@@ -452,6 +639,7 @@ export default function LandingPage() {
                 How it works
               </h2>
               <p
+                className="animate-fade-in-up delay-100"
                 style={{
                   color: "#64748b",
                   fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
@@ -461,6 +649,7 @@ export default function LandingPage() {
               </p>
             </div>
             <div
+              className="steps-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns:
@@ -484,9 +673,10 @@ export default function LandingPage() {
                   title: "Monitor automatically",
                   desc: "Sign up free and we check every 30 minutes. You only hear from us when something breaks.",
                 },
-              ].map((item) => (
+              ].map((item, i) => (
                 <div
                   key={item.step}
+                  className={`animate-fade-in-up delay-${(i + 1) * 200} card-3d`}
                   style={{
                     padding: "clamp(1.25rem, 3vw, 1.5rem)",
                     backgroundColor: "rgba(15, 23, 42, 0.6)",
@@ -542,6 +732,8 @@ export default function LandingPage() {
         <section
           style={{
             padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
@@ -552,6 +744,7 @@ export default function LandingPage() {
               }}
             >
               <h2
+                className="animate-fade-in-up"
                 style={{
                   fontSize: "clamp(1.25rem, 4vw, 1.875rem)",
                   fontWeight: "700",
@@ -562,6 +755,7 @@ export default function LandingPage() {
                 Everything we watch for you
               </h2>
               <p
+                className="animate-fade-in-up delay-100"
                 style={{
                   color: "#64748b",
                   fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
@@ -571,6 +765,7 @@ export default function LandingPage() {
               </p>
             </div>
             <div
+              className="feature-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns:
@@ -619,9 +814,10 @@ export default function LandingPage() {
                   title: "JS Error Detection",
                   desc: "Catch JavaScript crashes before they break your checkout or signup flow.",
                 },
-              ].map((feature) => (
+              ].map((feature, i) => (
                 <div
                   key={feature.title}
+                  className={`animate-fade-in-up delay-${((i % 4) + 1) * 100} card-3d`}
                   style={{
                     padding: "clamp(1.25rem, 3vw, 1.5rem)",
                     backgroundColor: "rgba(15, 23, 42, 0.6)",
@@ -680,6 +876,8 @@ export default function LandingPage() {
           style={{
             padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
             backgroundColor: "rgba(15, 23, 42, 0.4)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
@@ -690,6 +888,7 @@ export default function LandingPage() {
               }}
             >
               <h2
+                className="animate-fade-in-up"
                 style={{
                   fontSize: "clamp(1.25rem, 4vw, 1.875rem)",
                   fontWeight: "700",
@@ -700,6 +899,7 @@ export default function LandingPage() {
                 Simple pricing
               </h2>
               <p
+                className="animate-fade-in-up delay-100"
                 style={{
                   color: "#64748b",
                   fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
@@ -709,6 +909,7 @@ export default function LandingPage() {
               </p>
             </div>
             <div
+              className="pricing-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns:
@@ -716,9 +917,10 @@ export default function LandingPage() {
                 gap: "clamp(1rem, 3vw, 1.5rem)",
               }}
             >
-              {plans.map((plan) => (
+              {plans.map((plan, i) => (
                 <div
                   key={plan.name}
+                  className={`animate-fade-in-up delay-${(i + 1) * 150} pricing-3d`}
                   style={{
                     padding: "clamp(1.5rem, 4vw, 2rem)",
                     backgroundColor: "rgba(15, 23, 42, 0.6)",
@@ -840,6 +1042,7 @@ export default function LandingPage() {
                   </ul>
                   <Link
                     href="/register"
+                    className="btn-3d"
                     style={{
                       display: "block",
                       textAlign: "center",
@@ -867,6 +1070,8 @@ export default function LandingPage() {
         <section
           style={{
             padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div style={{ maxWidth: "48rem", margin: "0 auto" }}>
@@ -877,6 +1082,7 @@ export default function LandingPage() {
               }}
             >
               <h2
+                className="animate-fade-in-up"
                 style={{
                   fontSize: "clamp(1.25rem, 4vw, 1.875rem)",
                   fontWeight: "700",
@@ -887,6 +1093,7 @@ export default function LandingPage() {
                 Questions? Answered.
               </h2>
               <p
+                className="animate-fade-in-up delay-100"
                 style={{
                   color: "#64748b",
                   fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
@@ -901,6 +1108,7 @@ export default function LandingPage() {
               {faqs.map((faq, i) => (
                 <div
                   key={i}
+                  className={`animate-fade-in-up delay-${(i + 1) * 100} card-3d`}
                   style={{
                     backgroundColor: "rgba(15, 23, 42, 0.6)",
                     border: "1px solid rgba(51, 65, 85, 0.5)",
@@ -938,9 +1146,12 @@ export default function LandingPage() {
         <section
           style={{
             padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div
+            className="animate-scale-in cta-banner"
             style={{
               maxWidth: "48rem",
               margin: "0 auto",
@@ -975,6 +1186,7 @@ export default function LandingPage() {
             </p>
             <Link
               href="/register"
+              className="btn-3d"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -1000,6 +1212,8 @@ export default function LandingPage() {
           style={{
             borderTop: "1px solid rgba(51, 65, 85, 0.5)",
             padding: "clamp(2rem, 5vw, 3rem) clamp(1rem, 4vw, 1.5rem)",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <div
@@ -1021,42 +1235,10 @@ export default function LandingPage() {
               }}
             >
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                }}
+                style={{ display: "flex", alignItems: "center", flexShrink: 0 }}
               >
-                <div
-                  style={{
-                    width: "2rem",
-                    height: "2rem",
-                    backgroundColor: "#1d4ed8",
-                    borderRadius: "0.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Zap
-                    style={{
-                      width: "1.125rem",
-                      height: "1.125rem",
-                      color: "white",
-                    }}
-                  />
-                </div>
-                <span
-                  style={{
-                    fontWeight: "700",
-                    color: "#f1f5f9",
-                    fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
-                  }}
-                >
-                  PulseVault
-                </span>
+                <Logo variant="light" size="small" showTagline={false} />
               </div>
-
               <div
                 style={{
                   display: "flex",
@@ -1064,29 +1246,14 @@ export default function LandingPage() {
                   gap: "clamp(1rem, 3vw, 1.5rem)",
                 }}
               >
-                <Link
-                  href="/privacy-policy"
-                  style={{
-                    color: "#64748b",
-                    textDecoration: "none",
-                    fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                  }}
-                >
+                <Link href="/privacy-policy" className="footer-link">
                   Privacy Policy
                 </Link>
-                <Link
-                  href="/terms-of-service"
-                  style={{
-                    color: "#64748b",
-                    textDecoration: "none",
-                    fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                  }}
-                >
+                <Link href="/terms-of-service" className="footer-link">
                   Terms of Service
                 </Link>
               </div>
             </div>
-
             <p
               style={{
                 fontSize: "clamp(0.75rem, 2vw, 0.875rem)",

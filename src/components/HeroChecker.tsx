@@ -66,6 +66,7 @@ export default function HeroChecker() {
         onSubmit={check}
         style={{
           display: "flex",
+          flexDirection: "row",
           gap: "0.5rem",
           backgroundColor: "rgba(15, 23, 42, 0.8)",
           border: "1px solid rgba(51, 65, 85, 0.6)",
@@ -82,6 +83,7 @@ export default function HeroChecker() {
           disabled={loading}
           style={{
             flex: 1,
+            minWidth: 0,
             backgroundColor: "transparent",
             border: "none",
             outline: "none",
@@ -107,6 +109,8 @@ export default function HeroChecker() {
             gap: "0.5rem",
             whiteSpace: "nowrap",
             opacity: loading || !url.trim() ? 0.7 : 1,
+            transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+            flexShrink: 0,
           }}
         >
           {loading ? (
@@ -118,16 +122,35 @@ export default function HeroChecker() {
                   animation: "spin 1s linear infinite",
                 }}
               />
-              Scanning...
+              <span style={{ display: "inline" }}>Scanning...</span>
             </>
           ) : (
             <>
-              Check My Site
+              <span style={{ display: "inline" }}>Check</span>
               <ArrowRight style={{ width: "1.25rem", height: "1.25rem" }} />
             </>
           )}
         </button>
       </form>
+
+      {/* Mobile: stack the button below on very small screens via CSS */}
+      <style>{`
+        @media (max-width: 400px) {
+          form { flex-direction: column !important; }
+          form button { width: 100%; justify-content: center; }
+        }
+        @keyframes resultSlideIn {
+          from { opacity: 0; transform: translateY(20px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .result-animate {
+          animation: resultSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
       {/* Error */}
       {error && (
@@ -143,6 +166,7 @@ export default function HeroChecker() {
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
+            animation: "resultSlideIn 0.4s ease forwards",
           }}
         >
           <AlertTriangle
@@ -155,6 +179,7 @@ export default function HeroChecker() {
       {/* Results */}
       {result && (
         <div
+          className="result-animate"
           style={{
             marginTop: "1.5rem",
             backgroundColor: "rgba(15, 23, 42, 0.8)",
@@ -162,6 +187,19 @@ export default function HeroChecker() {
             borderRadius: "1rem",
             padding: "clamp(1.25rem, 3vw, 1.5rem)",
             textAlign: "left",
+            transform: "perspective(1000px)",
+            transition: "transform 0.4s ease, box-shadow 0.4s ease",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.transform =
+              "perspective(1000px) rotateX(1deg) rotateY(-1deg) translateZ(10px)";
+            (e.currentTarget as HTMLElement).style.boxShadow =
+              "0 20px 40px -10px rgba(37, 99, 235, 0.15)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.transform =
+              "perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "none";
           }}
         >
           <div
@@ -176,7 +214,7 @@ export default function HeroChecker() {
               borderBottom: "1px solid rgba(51, 65, 85, 0.4)",
             }}
           >
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <p
                 style={{
                   color: "#64748b",
@@ -197,7 +235,7 @@ export default function HeroChecker() {
                 {url}
               </p>
             </div>
-            <div style={{ textAlign: "right" }}>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
               <p
                 style={{
                   fontSize: "clamp(1.5rem, 4vw, 2rem)",
@@ -221,8 +259,8 @@ export default function HeroChecker() {
             style={{
               display: "grid",
               gridTemplateColumns:
-                "repeat(auto-fit, minmax(min(100%, 8rem), 1fr))",
-              gap: "1rem",
+                "repeat(auto-fit, minmax(min(100%, 7rem), 1fr))",
+              gap: "0.75rem",
               marginBottom: "1.25rem",
             }}
           >
@@ -275,10 +313,19 @@ export default function HeroChecker() {
                   style={{
                     backgroundColor: "rgba(30, 41, 59, 0.5)",
                     borderRadius: "0.75rem",
-                    padding: "1rem",
+                    padding: "0.875rem",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "0.5rem",
+                    gap: "0.375rem",
+                    transition: "transform 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.transform =
+                      "translateY(-2px) scale(1.02)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.transform =
+                      "translateY(0) scale(1)";
                   }}
                 >
                   <div
@@ -290,12 +337,12 @@ export default function HeroChecker() {
                   >
                     <Icon
                       style={{
-                        width: "1rem",
-                        height: "1rem",
+                        width: "0.875rem",
+                        height: "0.875rem",
                         color: item.color,
                       }}
                     />
-                    <span style={{ color: "#64748b", fontSize: "0.75rem" }}>
+                    <span style={{ color: "#64748b", fontSize: "0.7rem" }}>
                       {item.label}
                     </span>
                   </div>
@@ -303,7 +350,7 @@ export default function HeroChecker() {
                     style={{
                       color: "#f1f5f9",
                       fontWeight: "700",
-                      fontSize: "1.125rem",
+                      fontSize: "1rem",
                     }}
                   >
                     {item.value}
@@ -313,6 +360,52 @@ export default function HeroChecker() {
             })}
           </div>
 
+          {/* Disclaimer */}
+          <div
+            style={{
+              backgroundColor: "rgba(245, 158, 11, 0.06)",
+              border: "1px solid rgba(245, 158, 11, 0.12)",
+              borderRadius: "0.75rem",
+              padding: "0.875rem 1rem",
+              marginBottom: "0.75rem",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.625rem",
+            }}
+          >
+            <AlertTriangle
+              style={{
+                width: "1rem",
+                height: "1rem",
+                color: "#f59e0b",
+                flexShrink: 0,
+                marginTop: "0.125rem",
+              }}
+            />
+            <p
+              style={{
+                color: "#d4d4d8",
+                fontSize: "0.8125rem",
+                margin: 0,
+                lineHeight: 1.5,
+              }}
+            >
+              This is a quick surface check. For full diagnostics — forms,
+              JavaScript errors, plugins, security headers, and deep crawling —{" "}
+              <a
+                href="/register"
+                style={{
+                  color: "#fbbf24",
+                  fontWeight: "600",
+                  textDecoration: "underline",
+                }}
+              >
+                run a deep scan →
+              </a>
+            </p>
+          </div>
+
+          {/* CTA */}
           <div
             style={{
               backgroundColor: "rgba(37, 99, 235, 0.08)",
