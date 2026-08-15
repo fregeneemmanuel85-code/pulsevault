@@ -8,26 +8,33 @@ import {
   ArrowRight,
   CheckCircle2,
   Crown,
+  Activity,
+  Link2,
+  Clock,
+  Mail,
 } from "lucide-react";
+import HeroChecker from "@/components/HeroChecker";
 
 export const metadata: Metadata = {
-  title: "PulseVault — Website Monitoring & Uptime Tracking",
+  title: {
+    default: "PulseVault — Is Your Website Down? Free Health Check",
+    template: "%s | PulseVault",
+  },
   description:
-    "Monitor your website uptime, SSL certificates, broken links, and performance in real-time. Get instant alerts when your site goes down. Start free today.",
+    "Check if your website is working in 5 seconds. Free instant scan for downtime, slow speed, broken links, and SSL issues. No signup needed. Get alerts before your customers notice.",
   keywords: [
-    "website monitoring",
-    "uptime checker",
-    "SSL monitoring",
-    "DNS monitoring",
-    "website health",
-    "performance monitoring",
+    "is my website down",
+    "website down checker",
+    "check my website",
+    "website health check",
+    "site speed test",
     "broken link checker",
-    "server monitoring",
-    "website downtime alert",
+    "SSL certificate check",
+    "website monitoring",
+    "uptime tracker",
+    "website not working",
+    "fix my website",
     "PulseVault",
-    "site uptime tracker",
-    "API health monitoring",
-    "JavaScript error monitoring",
   ],
   authors: [{ name: "PulseVault" }],
   creator: "PulseVault",
@@ -38,17 +45,17 @@ export const metadata: Metadata = {
   },
   category: "Technology",
   openGraph: {
-    title: "PulseVault — Website Monitoring Made Simple",
+    title: "PulseVault — Is Your Website Working Right Now?",
     description:
-      "Full-stack monitoring for uptime, SSL, DNS, API health, forms, JavaScript errors, plugins, and HTTP errors. Get instant alerts when issues arise.",
+      "Free instant website health check. Downtime, speed, broken links, SSL — checked in seconds. No signup required.",
     url: "https://pulsevault.website",
     siteName: "PulseVault",
     images: [
       {
-        url: "/og-image.png",
+        url: "/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "PulseVault Dashboard Preview",
+        alt: "PulseVault — Free Website Health Check",
       },
     ],
     locale: "en_US",
@@ -56,10 +63,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "PulseVault — Website Monitoring",
+    title: "PulseVault — Is Your Website Down?",
     description:
-      "Monitor your website's uptime, SSL, DNS, API health, forms, JavaScript errors, and performance — all in one dashboard.",
-    images: ["/og-image.png"],
+      "Check your website health in 5 seconds. Free scan for downtime, speed, broken links, and SSL issues.",
+    images: ["/opengraph-image.png"],
     creator: "@pulsevault01",
   },
   robots: {
@@ -74,7 +81,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: "your-google-verification-code", // Replace after adding to Google Search Console
+    google: "your-google-verification-code",
   },
 };
 
@@ -82,29 +89,32 @@ const plans = [
   {
     name: "Free",
     price: "₦0",
-    desc: "For hobby projects",
+    period: "forever",
+    desc: "For personal sites & portfolios",
     features: [
       "2 websites",
       "30-min checks",
-      "In-app alerts",
+      "Email alerts",
       "Basic dashboard",
     ],
   },
   {
     name: "Starter",
     price: "₦3,000",
-    desc: "For small projects",
+    period: "month",
+    desc: "For freelancers & small teams",
     features: [
       "5 websites",
       "15-min checks",
-      "Email alerts",
+      "Email + in-app alerts",
       "Daily summaries",
     ],
   },
   {
     name: "Pro",
     price: "₦12,000",
-    desc: "For growing teams",
+    period: "month",
+    desc: "For growing businesses",
     features: [
       "30 websites",
       "5-min checks",
@@ -117,15 +127,39 @@ const plans = [
   {
     name: "Business",
     price: "₦22,500",
-    desc: "For large organizations",
+    period: "month",
+    desc: "For agencies & large orgs",
     features: [
       "100 websites",
       "1-min checks",
       "Team collaboration",
       "Shared dashboards",
       "Role-based access",
-      "Multi-client management",
+      "White-label reports",
     ],
+  },
+];
+
+const faqs = [
+  {
+    q: "How do I know if my website is down?",
+    a: "Enter your URL above for an instant free check. PulseVault tests if your site is online, measures load speed, checks your SSL certificate, and finds broken links — all in under 5 seconds.",
+  },
+  {
+    q: "Is PulseVault free to use?",
+    a: "Yes. You can run unlimited free health checks without signing up. For automatic monitoring every 30 minutes and email alerts, our free plan covers 2 websites forever.",
+  },
+  {
+    q: "What does a website health check include?",
+    a: "Our scan checks if your site is online, measures page load speed, validates your SSL certificate, detects broken links, checks form functionality, and scans for JavaScript errors.",
+  },
+  {
+    q: "Do I need technical skills to use PulseVault?",
+    a: "Not at all. PulseVault is built for business owners, bloggers, job seekers, and creators — not just developers. If you have a website, you can use it.",
+  },
+  {
+    q: "How often does PulseVault check my site?",
+    a: "Free plans check every 30 minutes. Paid plans range from 15 minutes down to 1 minute depending on your tier. You get instant alerts the moment an issue is detected.",
   },
 ];
 
@@ -139,10 +173,10 @@ export default function LandingPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "SoftwareApplication",
+                "@type": "WebApplication",
                 name: "PulseVault",
-                applicationCategory: "DeveloperApplication",
-                operatingSystem: "Web",
+                applicationCategory: "WebApplication",
+                operatingSystem: "Any",
                 offers: {
                   "@type": "Offer",
                   price: "0",
@@ -154,9 +188,28 @@ export default function LandingPage() {
                   ratingCount: "150",
                 },
                 description:
-                  "Real-time website monitoring, SSL tracking, and performance alerts.",
+                  "Free instant website health checker. Check if your site is down, slow, or broken in seconds. Get alerts before your customers notice.",
                 url: "https://pulsevault.website",
-                image: "https://pulsevault.website/og-image.png",
+                image: "https://pulsevault.website/opengraph-image.png",
+                featureList: [
+                  "Instant website health check",
+                  "Uptime monitoring",
+                  "SSL certificate tracking",
+                  "Broken link detection",
+                  "Page speed analysis",
+                  "Form monitoring",
+                ],
+              },
+              {
+                "@type": "FAQPage",
+                mainEntity: faqs.map((f) => ({
+                  "@type": "Question",
+                  name: f.q,
+                  acceptedAnswer: {
+                    "@type": "Answer",
+                    text: f.a,
+                  },
+                })),
               },
               {
                 "@type": "Organization",
@@ -270,7 +323,7 @@ export default function LandingPage() {
         <section
           style={{
             padding:
-              "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem) clamp(5rem, 12vw, 8rem)",
+              "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem) clamp(4rem, 10vw, 6rem)",
           }}
         >
           <div
@@ -300,7 +353,7 @@ export default function LandingPage() {
                   flexShrink: 0,
                 }}
               />
-              Now monitoring 10,000+ websites
+              Free instant website health checks
             </div>
             <h1
               style={{
@@ -312,8 +365,8 @@ export default function LandingPage() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Monitor your website&apos;s{" "}
-              <span style={{ color: "#3b82f6" }}>pulse</span>
+              Is your website <span style={{ color: "#3b82f6" }}>working</span>{" "}
+              right now?
             </h1>
             <p
               style={{
@@ -326,60 +379,161 @@ export default function LandingPage() {
                 padding: "0 clamp(0.5rem, 2vw, 1rem)",
               }}
             >
-              Full-stack monitoring for uptime, SSL, DNS, API health, forms,
-              JavaScript errors, plugins, and HTTP errors — all in one
-              dashboard.
+              Check any site in 5 seconds — no signup needed. See if it&apos;s
+              down, slow, broken, or insecure. Then set up free monitoring so
+              you never get caught off guard.
             </p>
+
+            {/* FREE CHECKER TOOL */}
+            <HeroChecker />
+
+            {/* Trust badges */}
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "clamp(0.75rem, 2vw, 1rem)",
+                gap: "clamp(1rem, 3vw, 1.5rem)",
                 flexWrap: "wrap",
+                marginTop: "clamp(1.5rem, 4vw, 2rem)",
               }}
             >
-              <Link
-                href="/register"
-                style={{
-                  backgroundColor: "#1d4ed8",
-                  color: "white",
-                  padding:
-                    "clamp(0.75rem, 2.5vw, 1rem) clamp(1.25rem, 4vw, 2rem)",
-                  borderRadius: "0.75rem",
-                  fontWeight: "600",
-                  fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Start Free Trial
-                <ArrowRight
+              {[
+                "No credit card required",
+                "Free plan available",
+                "Checks in 5 seconds",
+              ].map((t) => (
+                <div
+                  key={t}
                   style={{
-                    width: "clamp(1rem, 3vw, 1.25rem)",
-                    height: "clamp(1rem, 3vw, 1.25rem)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.375rem",
+                    color: "#64748b",
+                    fontSize: "clamp(0.6875rem, 2vw, 0.75rem)",
                   }}
-                />
-              </Link>
-              <Link
-                href="/login"
+                >
+                  <CheckCircle2
+                    style={{
+                      width: "0.875rem",
+                      height: "0.875rem",
+                      color: "#22c55e",
+                    }}
+                  />
+                  {t}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section
+          style={{
+            padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
+            backgroundColor: "rgba(15, 23, 42, 0.4)",
+          }}
+        >
+          <div style={{ maxWidth: "64rem", margin: "0 auto" }}>
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: "clamp(2rem, 6vw, 3rem)",
+              }}
+            >
+              <h2
                 style={{
-                  border: "1px solid rgba(51, 65, 85, 0.5)",
-                  color: "#94a3b8",
-                  padding:
-                    "clamp(0.75rem, 2.5vw, 1rem) clamp(1.25rem, 4vw, 2rem)",
-                  borderRadius: "0.75rem",
-                  fontWeight: "600",
-                  fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
+                  fontSize: "clamp(1.25rem, 4vw, 1.875rem)",
+                  fontWeight: "700",
+                  color: "#f1f5f9",
+                  marginBottom: "clamp(0.5rem, 2vw, 1rem)",
                 }}
               >
-                Sign In
-              </Link>
+                How it works
+              </h2>
+              <p
+                style={{
+                  color: "#64748b",
+                  fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
+                }}
+              >
+                From first check to ongoing monitoring in 3 steps
+              </p>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(min(100%, 14rem), 1fr))",
+                gap: "clamp(1rem, 3vw, 1.5rem)",
+              }}
+            >
+              {[
+                {
+                  step: "1",
+                  title: "Check instantly",
+                  desc: "Paste any URL above. We scan uptime, speed, SSL, links, and forms in seconds.",
+                },
+                {
+                  step: "2",
+                  title: "See the report",
+                  desc: "Get a clear health score with specific issues — no technical jargon.",
+                },
+                {
+                  step: "3",
+                  title: "Monitor automatically",
+                  desc: "Sign up free and we check every 30 minutes. You only hear from us when something breaks.",
+                },
+              ].map((item) => (
+                <div
+                  key={item.step}
+                  style={{
+                    padding: "clamp(1.25rem, 3vw, 1.5rem)",
+                    backgroundColor: "rgba(15, 23, 42, 0.6)",
+                    border: "1px solid rgba(51, 65, 85, 0.5)",
+                    borderRadius: "1rem",
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "2.5rem",
+                      height: "2.5rem",
+                      borderRadius: "50%",
+                      backgroundColor: "rgba(37, 99, 235, 0.1)",
+                      border: "1px solid rgba(37, 99, 235, 0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 1rem",
+                      color: "#60a5fa",
+                      fontWeight: "700",
+                      fontSize: "1rem",
+                    }}
+                  >
+                    {item.step}
+                  </div>
+                  <h3
+                    style={{
+                      fontWeight: "600",
+                      color: "#f1f5f9",
+                      marginBottom: "0.5rem",
+                      fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                    }}
+                  >
+                    {item.title}
+                  </h3>
+                  <p
+                    style={{
+                      fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                      color: "#64748b",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {item.desc}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -388,7 +542,6 @@ export default function LandingPage() {
         <section
           style={{
             padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
-            backgroundColor: "rgba(15, 23, 42, 0.4)",
           }}
         >
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
@@ -406,7 +559,7 @@ export default function LandingPage() {
                   marginBottom: "clamp(0.5rem, 2vw, 1rem)",
                 }}
               >
-                Everything you need to monitor
+                Everything we watch for you
               </h2>
               <p
                 style={{
@@ -414,7 +567,7 @@ export default function LandingPage() {
                   fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
                 }}
               >
-                Comprehensive checks for every layer of your stack
+                So you can focus on your business, not your server
               </p>
             </div>
             <div
@@ -429,22 +582,42 @@ export default function LandingPage() {
                 {
                   icon: Globe,
                   title: "Uptime Monitoring",
-                  desc: "Track availability with sub-minute checks",
+                  desc: "Know the second your site goes offline. We check every 1–30 minutes depending on your plan.",
                 },
                 {
                   icon: Shield,
                   title: "SSL Validation",
-                  desc: "Certificate expiry and chain verification",
+                  desc: "Don't let an expired certificate scare away customers. We track expiry and alert you 30 days early.",
                 },
                 {
                   icon: BarChart3,
                   title: "Health Score",
-                  desc: "Single 0-100 metric for quick assessment",
+                  desc: "One simple 0-100 score. No technical background needed to understand if your site is okay.",
+                },
+                {
+                  icon: Link2,
+                  title: "Broken Links",
+                  desc: "Dead links hurt your credibility and SEO. We find them across every page we scan.",
+                },
+                {
+                  icon: Activity,
+                  title: "Form Monitoring",
+                  desc: "Your contact form is your money-maker. We verify it actually submits and reaches your inbox.",
+                },
+                {
+                  icon: Clock,
+                  title: "Speed Tracking",
+                  desc: "Slow sites lose visitors. We measure load time and flag anything over 3 seconds.",
+                },
+                {
+                  icon: Mail,
+                  title: "Email Alerts",
+                  desc: "Get notified instantly when something breaks — not when a customer complains.",
                 },
                 {
                   icon: Zap,
-                  title: "Instant Alerts",
-                  desc: "Get notified via email when issues arise",
+                  title: "JS Error Detection",
+                  desc: "Catch JavaScript crashes before they break your checkout or signup flow.",
                 },
               ].map((feature) => (
                 <div
@@ -491,6 +664,7 @@ export default function LandingPage() {
                     style={{
                       fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                       color: "#64748b",
+                      lineHeight: 1.6,
                     }}
                   >
                     {feature.desc}
@@ -503,7 +677,10 @@ export default function LandingPage() {
 
         {/* Pricing */}
         <section
-          style={{ padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)" }}
+          style={{
+            padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
+            backgroundColor: "rgba(15, 23, 42, 0.4)",
+          }}
         >
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
             <div
@@ -528,7 +705,7 @@ export default function LandingPage() {
                   fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
                 }}
               >
-                Start free, scale as you grow
+                Start free. Upgrade when you grow.
               </p>
             </div>
             <div
@@ -616,7 +793,7 @@ export default function LandingPage() {
                         fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                       }}
                     >
-                      /month
+                      /{plan.period}
                     </span>
                   </div>
                   <p
@@ -678,11 +855,143 @@ export default function LandingPage() {
                         : "1px solid rgba(51, 65, 85, 0.5)",
                     }}
                   >
-                    Get Started
+                    {plan.name === "Free" ? "Start Free" : "Get Started"}
                   </Link>
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section
+          style={{
+            padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
+          }}
+        >
+          <div style={{ maxWidth: "48rem", margin: "0 auto" }}>
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: "clamp(2rem, 6vw, 3rem)",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "clamp(1.25rem, 4vw, 1.875rem)",
+                  fontWeight: "700",
+                  color: "#f1f5f9",
+                  marginBottom: "clamp(0.5rem, 2vw, 1rem)",
+                }}
+              >
+                Questions? Answered.
+              </h2>
+              <p
+                style={{
+                  color: "#64748b",
+                  fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
+                }}
+              >
+                Everything you need to know to get started
+              </p>
+            </div>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+            >
+              {faqs.map((faq, i) => (
+                <div
+                  key={i}
+                  style={{
+                    backgroundColor: "rgba(15, 23, 42, 0.6)",
+                    border: "1px solid rgba(51, 65, 85, 0.5)",
+                    borderRadius: "1rem",
+                    padding: "clamp(1.25rem, 3vw, 1.5rem)",
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontWeight: "600",
+                      color: "#f1f5f9",
+                      fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    {faq.q}
+                  </h3>
+                  <p
+                    style={{
+                      color: "#64748b",
+                      fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                      lineHeight: 1.7,
+                      margin: 0,
+                    }}
+                  >
+                    {faq.a}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Banner */}
+        <section
+          style={{
+            padding: "clamp(3rem, 8vw, 5rem) clamp(1rem, 4vw, 1.5rem)",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: "48rem",
+              margin: "0 auto",
+              backgroundColor: "rgba(37, 99, 235, 0.08)",
+              border: "1px solid rgba(37, 99, 235, 0.15)",
+              borderRadius: "1.5rem",
+              padding: "clamp(2rem, 6vw, 3rem)",
+              textAlign: "center",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "clamp(1.25rem, 4vw, 1.75rem)",
+                fontWeight: "700",
+                color: "#f1f5f9",
+                marginBottom: "1rem",
+              }}
+            >
+              Stop wondering if your site is broken.
+            </h2>
+            <p
+              style={{
+                color: "#64748b",
+                fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
+                marginBottom: "1.5rem",
+                maxWidth: "32rem",
+                margin: "0 auto 1.5rem",
+              }}
+            >
+              Check it free right now. Then let us watch it for you — so you can
+              sleep.
+            </p>
+            <Link
+              href="/register"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                backgroundColor: "#1d4ed8",
+                color: "white",
+                padding:
+                  "clamp(0.75rem, 2.5vw, 1rem) clamp(1.25rem, 4vw, 2rem)",
+                borderRadius: "0.75rem",
+                fontWeight: "600",
+                fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                textDecoration: "none",
+              }}
+            >
+              Start Free Monitoring
+              <ArrowRight style={{ width: "1.25rem", height: "1.25rem" }} />
+            </Link>
           </div>
         </section>
 
@@ -698,64 +1007,94 @@ export default function LandingPage() {
               maxWidth: "80rem",
               margin: "0 auto",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "1rem",
+              flexDirection: "column",
+              gap: "1.5rem",
             }}
           >
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
-            >
-              {/* ... your logo ... */}
-              <span
-                style={{
-                  fontWeight: "700",
-                  color: "#f1f5f9",
-                  fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
-                }}
-              >
-                PulseVault
-              </span>
-            </div>
-
-            {/* ADD THESE LINKS */}
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "clamp(1rem, 3vw, 1.5rem)",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "1rem",
               }}
             >
-              <Link
-                href="/privacy-policy"
+              <div
                 style={{
-                  color: "#64748b",
-                  textDecoration: "none",
-                  fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
                 }}
               >
-                Privacy Policy
-              </Link>
-              <Link
-                href="/terms-of-service"
+                <div
+                  style={{
+                    width: "2rem",
+                    height: "2rem",
+                    backgroundColor: "#1d4ed8",
+                    borderRadius: "0.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Zap
+                    style={{
+                      width: "1.125rem",
+                      height: "1.125rem",
+                      color: "white",
+                    }}
+                  />
+                </div>
+                <span
+                  style={{
+                    fontWeight: "700",
+                    color: "#f1f5f9",
+                    fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
+                  }}
+                >
+                  PulseVault
+                </span>
+              </div>
+
+              <div
                 style={{
-                  color: "#64748b",
-                  textDecoration: "none",
-                  fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "clamp(1rem, 3vw, 1.5rem)",
                 }}
               >
-                Terms of Service
-              </Link>
+                <Link
+                  href="/privacy-policy"
+                  style={{
+                    color: "#64748b",
+                    textDecoration: "none",
+                    fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                  }}
+                >
+                  Privacy Policy
+                </Link>
+                <Link
+                  href="/terms-of-service"
+                  style={{
+                    color: "#64748b",
+                    textDecoration: "none",
+                    fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+                  }}
+                >
+                  Terms of Service
+                </Link>
+              </div>
             </div>
 
             <p
               style={{
                 fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                color: "#64748b",
+                color: "#475569",
+                margin: 0,
               }}
             >
-              © 2026 PulseVault. All rights reserved.
+              © 2026 PulseVault. Built for anyone with a website.
             </p>
           </div>
         </footer>

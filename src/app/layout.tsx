@@ -9,21 +9,23 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "PulseVault — Website Monitoring & Uptime Tracking",
+    default: "PulseVault — Is Your Website Down? Free Health Check",
     template: "%s | PulseVault",
   },
   description:
-    "Monitor your website uptime, SSL certificates, broken links, and performance in real-time. Get instant alerts when your site goes down. Trusted by developers and businesses worldwide.",
+    "Check if your website is working in 5 seconds. Free instant scan for downtime, slow speed, broken links, and SSL issues. Get alerts before your customers notice. No tech skills needed.",
   keywords: [
+    "is my website down",
+    "website down checker",
+    "check my website",
+    "website health check",
+    "site speed test",
+    "broken link checker",
+    "SSL certificate check",
     "website monitoring",
     "uptime tracker",
-    "SSL monitor",
-    "site checker",
-    "performance monitoring",
-    "website health",
-    "broken link checker",
-    "server monitoring",
-    "website downtime alert",
+    "website not working",
+    "fix my website",
     "PulseVault",
   ],
   authors: [{ name: "PulseVault" }],
@@ -34,9 +36,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "PulseVault — Website Monitoring Made Simple",
+    title: "PulseVault — Is Your Website Working Right Now?",
     description:
-      "Never let your website go down unnoticed. Real-time uptime monitoring, SSL tracking, and instant alerts.",
+      "Free instant website health check. Downtime, speed, broken links, SSL — checked in seconds. No signup required.",
     url: "https://pulsevault.website",
     siteName: "PulseVault",
     images: [
@@ -44,7 +46,7 @@ export const metadata: Metadata = {
         url: "https://pulsevault.website/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "PulseVault Dashboard Preview",
+        alt: "PulseVault — Free Website Health Check",
       },
     ],
     locale: "en_US",
@@ -52,9 +54,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "PulseVault — Website Monitoring",
+    title: "PulseVault — Is Your Website Down?",
     description:
-      "Monitor uptime, SSL, broken links, and performance. Get instant alerts.",
+      "Check your website health in 5 seconds. Free scan for downtime, speed, broken links, and SSL issues.",
     images: ["https://pulsevault.website/opengraph-image.png"],
     creator: "@pulsevault",
   },
@@ -87,10 +89,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
+              "@type": "WebApplication",
               name: "PulseVault",
-              applicationCategory: "DeveloperApplication",
-              operatingSystem: "Web",
+              applicationCategory: "WebApplication",
+              operatingSystem: "Any",
               offers: {
                 "@type": "Offer",
                 price: "0",
@@ -102,8 +104,15 @@ export default function RootLayout({
                 ratingCount: "150",
               },
               description:
-                "Real-time website monitoring, SSL tracking, and performance alerts.",
+                "Free instant website health checker. Check if your site is down, slow, or broken in seconds. Get alerts before your customers notice.",
               url: "https://pulsevault.website",
+              featureList: [
+                "Instant website health check",
+                "Uptime monitoring",
+                "SSL certificate tracking",
+                "Broken link detection",
+                "Page speed analysis",
+              ],
             }),
           }}
         />
