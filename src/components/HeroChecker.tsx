@@ -30,7 +30,7 @@ export default function HeroChecker() {
     if (!target.startsWith("http")) target = "https://" + target;
 
     try {
-      const res = await fetch("/api/scan-deep", {
+      const res = await fetch("/api/check-public", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: target }),
