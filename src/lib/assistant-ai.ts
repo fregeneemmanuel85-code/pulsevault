@@ -55,7 +55,7 @@ export async function askGemini(
 
   try {
     const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -86,7 +86,6 @@ export async function askGemini(
 
     const data = await res.json();
 
-    // Check for blocked content
     if (data.promptFeedback?.blockReason) {
       throw new Error(`Gemini blocked: ${data.promptFeedback.blockReason}`);
     }

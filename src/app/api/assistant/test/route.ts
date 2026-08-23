@@ -18,7 +18,7 @@ export async function GET() {
   if (geminiKey) {
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -51,7 +51,7 @@ export async function GET() {
             Authorization: `Bearer ${groqKey}`,
           },
           body: JSON.stringify({
-            model: "llama-3.1-70b-versatile",
+            model: "llama-3.3-70b-versatile",
             messages: [{ role: "user", content: "Say OK" }],
           }),
         },
