@@ -30,7 +30,7 @@ export interface AIResponse {
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
-  timeoutMs = 8000,
+  timeoutMs = 10000,
 ): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -44,6 +44,7 @@ async function fetchWithTimeout(
   }
 }
 
+// ─── GEMINI ───
 export async function askGemini(
   context: string,
   userMessage: string,
@@ -75,7 +76,7 @@ export async function askGemini(
           },
         }),
       },
-      8000,
+      10000,
     );
 
     if (!res.ok) {
@@ -84,6 +85,12 @@ export async function askGemini(
     }
 
     const data = await res.json();
+
+    // Check for blocked content
+    if (data.promptFeedback?.blockReason) {
+      throw new Error(`Gemini blocked: ${data.promptFeedback.blockReason}`);
+    }
+
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
     if (!text) {
@@ -93,7 +100,6 @@ export async function askGemini(
     return { text, source: "gemini" };
   } catch (err: any) {
     if (err.name === "AbortError") {
-      console.error("[AI] Gemini timed out");
       return { text: "", source: "none", error: "Gemini timed out" };
     }
     console.error("[AI] Gemini failed:", err.message);
@@ -101,6 +107,7 @@ export async function askGemini(
   }
 }
 
+// ─── GROQ ───
 export async function askGroq(
   context: string,
   userMessage: string,
@@ -131,7 +138,7 @@ export async function askGroq(
           max_tokens: 1024,
         }),
       },
-      8000,
+      10000,
     );
 
     if (!res.ok) {
@@ -149,7 +156,6 @@ export async function askGroq(
     return { text, source: "groq" };
   } catch (err: any) {
     if (err.name === "AbortError") {
-      console.error("[AI] Groq timed out");
       return { text: "", source: "none", error: "Groq timed out" };
     }
     console.error("[AI] Groq failed:", err.message);
@@ -157,35 +163,31 @@ export async function askGroq(
   }
 }
 
+// ─── FALLBACK: Gemini → Groq ───
 export async function askAIWithFallback(
   context: string,
   userMessage: string,
 ): Promise<AIResponse> {
-  if (!GEMINI_API_KEY && !GROQ_API_KEY) {
-    return {
-      text: "AI is not configured. Please add GEMINI_API_KEY and GROQ_API_KEY to your environment variables.",
-      source: "none",
-      error: "No API keys configured",
-    };
-  }
-
   // Try Gemini first
   const gemini = await askGemini(context, userMessage);
   if (gemini.text && !gemini.error) {
     return gemini;
   }
 
+  console.log("[AI] Gemini failed:", gemini.error, "| Trying Groq...");
+
   // Fallback to Groq
-  console.log("[AI] Falling back to Groq...");
   const groq = await askGroq(context, userMessage);
   if (groq.text && !groq.error) {
     return groq;
   }
 
-  // Both failed
+  console.log("[AI] Groq failed:", groq.error);
+
+  // Both failed — return a helpful message to the user
   return {
-    text: `AI providers are down. Gemini: ${gemini.error || "OK"} | Groq: ${groq.error || "OK"}`,
+    text: `AI is temporarily unavailable. Please try again in a moment.`,
     source: "none",
-    error: gemini.error || groq.error || "Both providers failed",
+    error: `Gemini: ${gemini.error || "OK"} | Groq: ${groq.error || "OK"}`,
   };
 }
