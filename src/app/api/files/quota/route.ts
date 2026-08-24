@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { db } from "@/lib/firebase-admin";
+import { getPlanConfig } from "@/lib/subscription";
 
 const JWT_SECRET = process.env.JWT_SECRET;
-
-const PLAN_LIMITS = {
-  Free: 100 * 1024 * 1024,
-  Starter: 300 * 1024 * 1024,
-  Pro: 500 * 1024 * 1024,
-  Business: 1024 * 1024 * 1024,
-};
 
 async function getUserFromToken(req: NextRequest) {
   const cookieToken = req.cookies.get("token")?.value;
@@ -35,16 +29,16 @@ export async function GET(req: NextRequest) {
     const userRef = db.collection("users").doc(userId);
     const snap = await userRef.get();
     const data = snap.exists ? snap.data() : {};
-    const plan = (data?.plan as string) || "Free";
-    const limit =
-      PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.Free;
+
+    const planId = (data?.planId as string) || "free";
+    const config = getPlanConfig(planId);
     const used = Number(data?.storageUsed) || 0;
 
     return NextResponse.json({
       used,
-      limit,
-      plan,
-      remaining: Math.max(0, limit - used),
+      limit: config.fileStorage,
+      plan: config.name,
+      remaining: Math.max(0, config.fileStorage - used),
     });
   } catch (err: any) {
     console.error("[API /files/quota] Error:", err.message);

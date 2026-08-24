@@ -251,7 +251,10 @@ export interface UserPlan {
   checkInterval: number;
   startedAt: string;
   expiresAt?: string;
-  status: "active" | "cancelled" | "expired";
+  status: "active" | "cancelled" | "expired" | "grace";
+  gracePeriodEnd?: string | null;
+  aiCredits?: number;
+  fileStorage?: number;
   paymentMethod?: string;
 }
 
@@ -1068,6 +1071,9 @@ export async function initializeUser(planId: string = "free") {
           websites: 2,
           checkInterval: 30,
           startedAt: new Date().toISOString(),
+          expiresAt: new Date(
+            Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
           status: "active" as const,
         };
     }

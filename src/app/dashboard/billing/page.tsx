@@ -3,7 +3,14 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { Check, CreditCard, Loader2, Sparkles } from "lucide-react";
+import {
+  Check,
+  CreditCard,
+  Loader2,
+  Sparkles,
+  HardDrive,
+  AlertTriangle,
+} from "lucide-react";
 import {
   subscribeToUserPlan,
   setUserPlan,
@@ -13,6 +20,11 @@ import {
   type UserPlan,
   type Invoice,
 } from "@/lib/firestore";
+import {
+  getPlanConfig,
+  checkSubscriptionStatus,
+  formatFileStorage,
+} from "@/lib/subscription";
 
 interface PlanOption {
   id: string;
@@ -23,6 +35,7 @@ interface PlanOption {
   websites: number;
   checkInterval: string;
   aiCredits: number;
+  fileStorage: number;
   features: string[];
 }
 
@@ -36,6 +49,7 @@ const plans: PlanOption[] = [
     websites: 2,
     checkInterval: "30 minutes",
     aiCredits: 100,
+    fileStorage: 100 * 1024 * 1024,
     features: [
       "2 websites monitoring",
       "30-minute check interval",
@@ -53,6 +67,7 @@ const plans: PlanOption[] = [
       "In-app alerts only",
       "Health score tracking (0-100)",
       "Performance insights",
+      "File Vault: 100 MB storage",
     ],
   },
   {
@@ -64,16 +79,16 @@ const plans: PlanOption[] = [
     websites: 5,
     checkInterval: "15 minutes",
     aiCredits: 500,
+    fileStorage: 300 * 1024 * 1024,
     features: [
       "5 websites monitoring",
       "15-minute check interval",
       "All Free features",
-      "SEO monitoring",
-      "Domain expiration monitoring",
       "Email alerts",
       "Daily/weekly summaries",
       "AI Assistant: 500 credits/day",
       "Incident history tracking",
+      "File Vault: 300 MB storage",
     ],
   },
   {
@@ -85,6 +100,7 @@ const plans: PlanOption[] = [
     websites: 30,
     checkInterval: "5 minutes",
     aiCredits: 1000,
+    fileStorage: 500 * 1024 * 1024,
     features: [
       "30 websites monitoring",
       "5-minute check interval",
@@ -93,6 +109,7 @@ const plans: PlanOption[] = [
       "AI Assistant: 1,000 credits/day",
       "Advanced reporting",
       "Faster detection",
+      "File Vault: 500 MB storage",
     ],
   },
   {
@@ -104,6 +121,7 @@ const plans: PlanOption[] = [
     websites: 100,
     checkInterval: "1 minute",
     aiCredits: 10000,
+    fileStorage: 1024 * 1024 * 1024,
     features: [
       "100 websites monitoring",
       "1-minute check interval",
@@ -112,6 +130,7 @@ const plans: PlanOption[] = [
       "AI Assistant: 10,000 credits/day",
       "Priority AI queue",
       "White Label",
+      "File Vault: 1 GB storage",
     ],
   },
 ];
@@ -164,7 +183,6 @@ export default function BillingPage() {
     script.src = "https://js.paystack.co/v1/inline.js";
     script.async = true;
     script.onload = () => {
-      console.log("[Paystack] Script loaded successfully");
       setPaystackReady(true);
       scriptLoadedRef.current = true;
     };
@@ -195,8 +213,29 @@ export default function BillingPage() {
     };
   }, [authReady]);
 
+  const planStatus = currentPlan
+    ? checkSubscriptionStatus(currentPlan as any)
+    : "active";
+  const daysUntilExpiry = currentPlan?.expiresAt
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(currentPlan.expiresAt).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      )
+    : 0;
+  const graceDaysLeft = currentPlan?.gracePeriodEnd
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(currentPlan.gracePeriodEnd).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      )
+    : 0;
+
   const onPaystackSuccess = function (response: any) {
-    console.log("[Paystack] Payment success:", response);
     const plan = pendingPlanRef.current;
     if (!plan) return;
 
@@ -214,18 +253,15 @@ export default function BillingPage() {
           return;
         }
 
-        return setUserPlan({
-          planId: plan.id,
-          planName: plan.name,
-          price: plan.price,
-          websites: plan.websites,
-          checkInterval: parseInt(plan.checkInterval),
-          startedAt: new Date().toISOString(),
-          expiresAt: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          status: "active",
-        }).then(() => {
+        // Call the new renew API instead of direct Firestore write
+        return fetch("/api/billing/renew", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: plan.id, txRef: response.reference }),
+        }).then((res) => res.json());
+      })
+      .then((renewData) => {
+        if (renewData?.success) {
           return addInvoice({
             date: new Date().toLocaleDateString(),
             amount: "NGN " + plan.price.toLocaleString(),
@@ -233,7 +269,7 @@ export default function BillingPage() {
             plan: plan.name,
             txRef: response.reference,
           });
-        });
+        }
       })
       .then(() => {
         alert("Payment successful! You are now on the " + plan.name + " plan.");
@@ -249,22 +285,14 @@ export default function BillingPage() {
   };
 
   const onPaystackClose = function () {
-    console.log("[Paystack] Payment modal closed");
     setProcessingPlanId(null);
     pendingPlanRef.current = null;
   };
 
   const handlePayment = function (plan: PlanOption) {
     if (plan.price === 0) {
-      setUserPlan({
-        planId: plan.id,
-        planName: plan.name,
-        price: plan.price,
-        websites: plan.websites,
-        checkInterval: parseInt(plan.checkInterval),
-        startedAt: new Date().toISOString(),
-        status: "active",
-      })
+      // Downgrade to Free
+      fetch("/api/billing/downgrade", { method: "POST" })
         .then(() => {
           alert("Downgraded to Free plan successfully!");
         })
@@ -283,7 +311,6 @@ export default function BillingPage() {
     }
 
     const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-
     if (!paystackKey) {
       alert("Payment configuration error. Please contact support.");
       return;
@@ -299,15 +326,6 @@ export default function BillingPage() {
     const txRef =
       "PV-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
 
-    console.log(
-      "[Paystack] Starting payment for:",
-      plan.name,
-      "Amount:",
-      plan.price,
-      "Email:",
-      userEmail,
-    );
-
     try {
       const handler = (window as any).PaystackPop.setup({
         key: paystackKey,
@@ -320,20 +338,14 @@ export default function BillingPage() {
           planName: plan.name,
           userId: user?.uid || "",
           custom_fields: [
-            {
-              display_name: "Plan",
-              variable_name: "plan",
-              value: plan.name,
-            },
+            { display_name: "Plan", variable_name: "plan", value: plan.name },
           ],
         },
         callback: onPaystackSuccess,
         onClose: onPaystackClose,
       });
-
       handler.openIframe();
     } catch (err: any) {
-      console.error("[Paystack] Setup error:", err);
       alert("Failed to initialize payment. Please try again.");
       setProcessingPlanId(null);
       pendingPlanRef.current = null;
@@ -349,6 +361,9 @@ export default function BillingPage() {
         price: currentPlan.price,
         aiCredits:
           plans.find((p) => p.id === currentPlan.planId)?.aiCredits || 100,
+        fileStorage:
+          plans.find((p) => p.id === currentPlan.planId)?.fileStorage ||
+          100 * 1024 * 1024,
       }
     : {
         used: websiteCount,
@@ -357,6 +372,7 @@ export default function BillingPage() {
         checkInterval: "30 minutes",
         price: 0,
         aiCredits: 100,
+        fileStorage: 100 * 1024 * 1024,
       };
 
   if (loading || !authReady) {
@@ -447,6 +463,23 @@ export default function BillingPage() {
               }}
             >
               {currentPlan?.planName || "Free"}
+              {currentPlan?.expiresAt && planStatus === "active" && (
+                <span style={{ color: "#22c55e", marginLeft: "0.5rem" }}>
+                  · Expires in {daysUntilExpiry} day
+                  {daysUntilExpiry !== 1 ? "s" : ""}
+                </span>
+              )}
+              {planStatus === "grace" && (
+                <span style={{ color: "#f59e0b", marginLeft: "0.5rem" }}>
+                  · Grace period: {graceDaysLeft} day
+                  {graceDaysLeft !== 1 ? "s" : ""} left
+                </span>
+              )}
+              {planStatus === "expired" && (
+                <span style={{ color: "#ef4444", marginLeft: "0.5rem" }}>
+                  · Expired — downgraded to Free
+                </span>
+              )}
             </p>
           </div>
           <span
@@ -456,12 +489,31 @@ export default function BillingPage() {
               padding: "clamp(0.25rem, 1vw, 0.375rem) clamp(0.5rem, 2vw, 1rem)",
               borderRadius: "9999px",
               backgroundColor:
-                currentPlan?.planId === "free" ? "#f0fdf4" : "#eff6ff",
-              color: currentPlan?.planId === "free" ? "#15803d" : "#2563eb",
+                planStatus === "expired"
+                  ? "#fef2f2"
+                  : planStatus === "grace"
+                    ? "#fffbeb"
+                    : currentPlan?.planId === "free"
+                      ? "#f0fdf4"
+                      : "#eff6ff",
+              color:
+                planStatus === "expired"
+                  ? "#b91c1c"
+                  : planStatus === "grace"
+                    ? "#b45309"
+                    : currentPlan?.planId === "free"
+                      ? "#15803d"
+                      : "#2563eb",
               flexShrink: 0,
             }}
           >
-            {currentPlan?.status === "active" ? "Active" : "Free"}
+            {planStatus === "expired"
+              ? "Expired"
+              : planStatus === "grace"
+                ? "Grace Period"
+                : currentPlan?.status === "active"
+                  ? "Active"
+                  : "Free"}
           </span>
         </div>
 
@@ -505,6 +557,11 @@ export default function BillingPage() {
               label: "AI Credits",
               value: `${planUsage.aiCredits.toLocaleString()}/day`,
               icon: <Sparkles size={12} style={{ color: "#f59e0b" }} />,
+            },
+            {
+              label: "File Vault",
+              value: formatFileStorage(planUsage.fileStorage),
+              icon: <HardDrive size={12} style={{ color: "#60a5fa" }} />,
             },
             {
               label: "Price",
@@ -654,7 +711,8 @@ export default function BillingPage() {
                 }}
               >
                 {plan.websites} websites · {plan.checkInterval} checks ·{" "}
-                {plan.aiCredits.toLocaleString()} AI credits
+                {plan.aiCredits.toLocaleString()} AI credits ·{" "}
+                {formatFileStorage(plan.fileStorage)} files
               </p>
 
               <ul
@@ -724,7 +782,8 @@ export default function BillingPage() {
                 type="button"
                 onClick={() => handlePayment(plan)}
                 disabled={
-                  processingPlanId !== null || currentPlan?.planId === plan.id
+                  processingPlanId !== null ||
+                  (currentPlan?.planId === plan.id && planStatus === "active")
                 }
                 style={{
                   width: "100%",
@@ -733,13 +792,13 @@ export default function BillingPage() {
                   borderRadius: "0.5rem",
                   border: plan.price === 0 ? "1px solid #e2e8f0" : "none",
                   backgroundColor:
-                    currentPlan?.planId === plan.id
+                    currentPlan?.planId === plan.id && planStatus === "active"
                       ? "#f1f5f9"
                       : plan.price === 0
                         ? "white"
                         : "#2563eb",
                   color:
-                    currentPlan?.planId === plan.id
+                    currentPlan?.planId === plan.id && planStatus === "active"
                       ? "#94a3b8"
                       : plan.price === 0
                         ? "#475569"
@@ -747,19 +806,21 @@ export default function BillingPage() {
                   fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                   fontWeight: "500",
                   cursor:
-                    currentPlan?.planId === plan.id || processingPlanId !== null
+                    currentPlan?.planId === plan.id && planStatus === "active"
                       ? "default"
                       : "pointer",
                   whiteSpace: "nowrap",
                 }}
               >
-                {currentPlan?.planId === plan.id
+                {currentPlan?.planId === plan.id && planStatus === "active"
                   ? "Current Plan"
                   : plan.price === 0
                     ? "Downgrade"
                     : processingPlanId === plan.id
                       ? "Processing..."
-                      : "Upgrade"}
+                      : planStatus === "expired" && plan.id !== "free"
+                        ? "Reactivate"
+                        : "Upgrade"}
               </button>
             </div>
           ))}
