@@ -105,6 +105,7 @@ const plans = [
       "In-app alerts only",
       "Health score tracking (0-100)",
       "Performance insights",
+      "File Vault: 100 MB storage",
     ],
   },
   {
@@ -122,6 +123,7 @@ const plans = [
       "Daily/weekly summaries",
       "AI Assistant: 500 credits/day",
       "Incident history tracking",
+      "File Vault: 300 MB storage",
     ],
   },
   {
@@ -137,6 +139,7 @@ const plans = [
       "AI Assistant: 1,000 credits/day",
       "Advanced reporting",
       "Faster detection",
+      "File Vault: 500 GB storage",
     ],
     popular: true,
   },
@@ -153,6 +156,7 @@ const plans = [
       "AI Assistant: 10,000 credits/day",
       "Priority AI queue",
       "White Label",
+      "File Vault: 1 GB storage",
     ],
   },
 ];

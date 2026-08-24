@@ -3,7 +3,14 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { Check, CreditCard, Loader2, Sparkles, HardDrive } from "lucide-react";
+import {
+  Check,
+  CreditCard,
+  Loader2,
+  Sparkles,
+  HardDrive,
+  X,
+} from "lucide-react";
 import {
   subscribeToUserPlan,
   subscribeToInvoices,
@@ -137,10 +144,15 @@ export default function BillingPage() {
   const [websiteCount, setWebsiteCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [paystackReady, setPaystackReady] = useState(false);
+  const [flutterwaveReady, setFlutterwaveReady] = useState(false);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<
+    "paystack" | "flutterwave"
+  >("paystack");
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
   const pendingPlanRef = useRef<PlanOption | null>(null);
-  const scriptLoadedRef = useRef(false);
+  const scriptLoadedRef = useRef({ paystack: false, flutterwave: false });
 
   useEffect(() => {
     const auth = getAuth();
@@ -150,12 +162,13 @@ export default function BillingPage() {
     return () => unsubscribe();
   }, []);
 
+  // Load Paystack script
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (scriptLoadedRef.current) return;
+    if (scriptLoadedRef.current.paystack) return;
     if ((window as any).PaystackPop) {
       setPaystackReady(true);
-      scriptLoadedRef.current = true;
+      scriptLoadedRef.current.paystack = true;
       return;
     }
 
@@ -166,7 +179,7 @@ export default function BillingPage() {
       const checkReady = setInterval(() => {
         if ((window as any).PaystackPop) {
           setPaystackReady(true);
-          scriptLoadedRef.current = true;
+          scriptLoadedRef.current.paystack = true;
           clearInterval(checkReady);
         }
       }, 200);
@@ -178,14 +191,45 @@ export default function BillingPage() {
     script.async = true;
     script.onload = () => {
       setPaystackReady(true);
-      scriptLoadedRef.current = true;
+      scriptLoadedRef.current.paystack = true;
     };
-    script.onerror = () => {
-      console.error("[Paystack] Failed to load script");
-    };
+    script.onerror = () => console.error("[Paystack] Failed to load script");
     document.body.appendChild(script);
+  }, []);
 
-    return () => {};
+  // Load Flutterwave script
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (scriptLoadedRef.current.flutterwave) return;
+    if ((window as any).FlutterwaveCheckout) {
+      setFlutterwaveReady(true);
+      scriptLoadedRef.current.flutterwave = true;
+      return;
+    }
+
+    const existing = document.querySelector(
+      'script[src="https://checkout.flutterwave.com/v3.js"]',
+    );
+    if (existing) {
+      const checkReady = setInterval(() => {
+        if ((window as any).FlutterwaveCheckout) {
+          setFlutterwaveReady(true);
+          scriptLoadedRef.current.flutterwave = true;
+          clearInterval(checkReady);
+        }
+      }, 200);
+      return () => clearInterval(checkReady);
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.flutterwave.com/v3.js";
+    script.async = true;
+    script.onload = () => {
+      setFlutterwaveReady(true);
+      scriptLoadedRef.current.flutterwave = true;
+    };
+    script.onerror = () => console.error("[Flutterwave] Failed to load script");
+    document.body.appendChild(script);
   }, []);
 
   useEffect(() => {
@@ -229,6 +273,7 @@ export default function BillingPage() {
       )
     : 0;
 
+  // ─── PAYSTACK ───
   const onPaystackSuccess = function (response: any) {
     const plan = pendingPlanRef.current;
     if (!plan) return;
@@ -288,25 +333,9 @@ export default function BillingPage() {
     pendingPlanRef.current = null;
   };
 
-  const handlePayment = function (plan: PlanOption) {
-    if (plan.price === 0) {
-      fetch("/api/billing/downgrade", { method: "POST" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            showToast("Downgraded to Free plan successfully!", "success");
-          } else {
-            showToast(data.error || "Downgrade failed", "error");
-          }
-        })
-        .catch((err) => {
-          console.error(err);
-          showToast("Failed to downgrade. Please try again.", "error");
-        });
-      return;
-    }
-
-    if (!paystackReady || !(window as any).PaystackPop) {
+  // ─── FLUTTERWAVE ───
+  const handleFlutterwavePayment = function (plan: PlanOption) {
+    if (!flutterwaveReady || !(window as any).FlutterwaveCheckout) {
       showToast(
         "Payment system still loading... please wait a moment and try again",
         "warning",
@@ -314,52 +343,182 @@ export default function BillingPage() {
       return;
     }
 
-    const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-    if (!paystackKey) {
-      showToast(
-        "Payment configuration error. Please contact support.",
-        "error",
-      );
+    const flutterwaveKey = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
+    if (!flutterwaveKey) {
+      showToast("Flutterwave not configured. Please contact support.", "error");
       return;
     }
 
     const auth = getAuth();
     const user = auth.currentUser;
     const userEmail = user?.email || "user@pulsevault.com";
+    const userName = user?.displayName || userEmail.split("@")[0];
 
     setProcessingPlanId(plan.id);
     pendingPlanRef.current = plan;
 
     const txRef =
-      "PV-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+      "PV-FW-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
 
     try {
-      const handler = (window as any).PaystackPop.setup({
-        key: paystackKey,
-        email: userEmail,
-        amount: plan.price * 100,
+      (window as any).FlutterwaveCheckout({
+        public_key: flutterwaveKey,
+        tx_ref: txRef,
+        amount: plan.price,
         currency: "NGN",
-        ref: txRef,
-        metadata: {
-          planId: plan.id,
-          planName: plan.name,
-          userId: user?.uid || "",
-          custom_fields: [
-            {
-              display_name: "Plan",
-              variable_name: "plan",
-              value: plan.name,
-            },
-          ],
+        payment_options: "card,ussd,banktransfer",
+        customer: {
+          email: userEmail,
+          name: userName,
+          phone_number: "",
         },
-        callback: onPaystackSuccess,
-        onClose: onPaystackClose,
+        customizations: {
+          title: "PulseVault",
+          description: `Payment for ${plan.name} plan`,
+          logo: "https://pulsevault.website/logo.png",
+        },
+        callback: function (response: any) {
+          // Close Flutterwave modal
+          const modal = document.querySelector("#flutterwave-overlay");
+          if (modal) (modal as any).remove?.();
+
+          if (response.status === "successful") {
+            fetch("/api/billing/flutterwave/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                transaction_id: response.transaction_id,
+                planId: plan.id,
+                txRef,
+              }),
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.success) {
+                  return addInvoice({
+                    date: new Date().toLocaleDateString(),
+                    amount: "NGN " + plan.price.toLocaleString(),
+                    status: "Paid",
+                    plan: plan.name,
+                    txRef,
+                  }).then(() => {
+                    showToast(
+                      `Payment successful! You are now on the ${plan.name} plan.`,
+                      "success",
+                    );
+                  });
+                } else {
+                  showToast(
+                    data.error || "Payment verification failed",
+                    "error",
+                  );
+                }
+              })
+              .catch((err) => {
+                console.error("[Flutterwave] Post-payment error:", err);
+                showToast(
+                  "Payment verification failed. Please contact support.",
+                  "error",
+                );
+              })
+              .finally(() => {
+                setProcessingPlanId(null);
+                pendingPlanRef.current = null;
+              });
+          } else {
+            showToast("Payment was not successful. Please try again.", "error");
+            setProcessingPlanId(null);
+            pendingPlanRef.current = null;
+          }
+        },
+        onclose: function () {
+          setProcessingPlanId(null);
+          pendingPlanRef.current = null;
+        },
       });
-      handler.openIframe();
     } catch (err: any) {
-      showToast("Failed to initialize payment. Please try again.", "error");
+      showToast("Failed to initialize Flutterwave. Please try again.", "error");
       setProcessingPlanId(null);
       pendingPlanRef.current = null;
+    }
+  };
+
+  // ─── DOWNGRADE ───
+  const confirmDowngrade = function () {
+    setShowDowngradeConfirm(false);
+    fetch("/api/billing/downgrade", { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          showToast("Downgraded to Free plan successfully!", "success");
+        } else {
+          showToast(data.error || "Downgrade failed", "error");
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        showToast("Failed to downgrade. Please try again.", "error");
+      });
+  };
+
+  // ─── MAIN PAYMENT HANDLER ───
+  const handlePayment = function (plan: PlanOption) {
+    if (plan.price === 0) {
+      setShowDowngradeConfirm(true);
+      return;
+    }
+
+    if (paymentMethod === "paystack") {
+      if (!paystackReady || !(window as any).PaystackPop) {
+        showToast(
+          "Paystack still loading... please wait a moment and try again",
+          "warning",
+        );
+        return;
+      }
+
+      const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
+      if (!paystackKey) {
+        showToast("Paystack not configured. Please contact support.", "error");
+        return;
+      }
+
+      const auth = getAuth();
+      const user = auth.currentUser;
+      const userEmail = user?.email || "user@pulsevault.com";
+
+      setProcessingPlanId(plan.id);
+      pendingPlanRef.current = plan;
+
+      const txRef =
+        "PV-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+
+      try {
+        const handler = (window as any).PaystackPop.setup({
+          key: paystackKey,
+          email: userEmail,
+          amount: plan.price * 100,
+          currency: "NGN",
+          ref: txRef,
+          metadata: {
+            planId: plan.id,
+            planName: plan.name,
+            userId: user?.uid || "",
+            custom_fields: [
+              { display_name: "Plan", variable_name: "plan", value: plan.name },
+            ],
+          },
+          callback: onPaystackSuccess,
+          onClose: onPaystackClose,
+        });
+        handler.openIframe();
+      } catch (err: any) {
+        showToast("Failed to initialize Paystack. Please try again.", "error");
+        setProcessingPlanId(null);
+        pendingPlanRef.current = null;
+      }
+    } else {
+      handleFlutterwavePayment(plan);
     }
   };
 
@@ -415,8 +574,99 @@ export default function BillingPage() {
         flexDirection: "column",
         gap: "clamp(1rem, 3vw, 2rem)",
         padding: "0 clamp(0.5rem, 2vw, 1rem)",
+        position: "relative",
       }}
     >
+      {/* ─── DOWNGRADE CONFIRMATION MODAL ─── */}
+      {showDowngradeConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.6)",
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
+          onClick={() => setShowDowngradeConfirm(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "white",
+              borderRadius: "1rem",
+              padding: "clamp(1.5rem, 4vw, 2rem)",
+              maxWidth: "28rem",
+              width: "100%",
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+            }}
+          >
+            <h3
+              style={{
+                fontSize: "clamp(1rem, 3vw, 1.25rem)",
+                fontWeight: "700",
+                color: "#0f172a",
+                marginBottom: "0.75rem",
+              }}
+            >
+              Downgrade to Free?
+            </h3>
+            <p
+              style={{
+                color: "#64748b",
+                fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
+                lineHeight: 1.6,
+                marginBottom: "1.5rem",
+              }}
+            >
+              Are you sure you want to downgrade to the Free plan? You will lose
+              premium features and only 2 websites will remain active. All your
+              data is preserved.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.75rem",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={() => setShowDowngradeConfirm(false)}
+                style={{
+                  padding: "0.625rem 1.25rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid #e2e8f0",
+                  backgroundColor: "white",
+                  color: "#475569",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDowngrade}
+                style={{
+                  padding: "0.625rem 1.25rem",
+                  borderRadius: "0.5rem",
+                  border: "none",
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  fontSize: "0.875rem",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Yes, Downgrade
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <h1
           style={{
@@ -618,6 +868,98 @@ export default function BillingPage() {
               </p>
               {item.extra}
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Payment Method Selector */}
+      <div
+        style={{
+          backgroundColor: "white",
+          borderRadius: "1rem",
+          border: "1px solid #e2e8f0",
+          padding: "clamp(1rem, 3vw, 1.5rem)",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
+            fontWeight: "600",
+            color: "#0f172a",
+            marginBottom: "clamp(0.75rem, 2vw, 1rem)",
+          }}
+        >
+          Payment Method
+        </h2>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          {[
+            {
+              id: "paystack" as const,
+              name: "Paystack",
+              desc: "Card, bank transfer, USSD",
+              flag: "🇳🇬",
+            },
+            {
+              id: "flutterwave" as const,
+              name: "Flutterwave",
+              desc: "Card, bank, mobile money",
+              flag: "🌍",
+            },
+          ].map((method) => (
+            <button
+              key={method.id}
+              onClick={() => setPaymentMethod(method.id)}
+              style={{
+                flex: 1,
+                minWidth: "140px",
+                padding: "clamp(0.75rem, 2vw, 1rem)",
+                borderRadius: "0.75rem",
+                border:
+                  paymentMethod === method.id
+                    ? "2px solid #2563eb"
+                    : "1px solid #e2e8f0",
+                backgroundColor:
+                  paymentMethod === method.id ? "#eff6ff" : "white",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all 0.2s",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  marginBottom: "0.25rem",
+                }}
+              >
+                <span style={{ fontSize: "1.25rem" }}>{method.flag}</span>
+                <span
+                  style={{
+                    fontWeight: "600",
+                    color: "#0f172a",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {method.name}
+                </span>
+                {paymentMethod === method.id && (
+                  <Check
+                    size={14}
+                    style={{ color: "#2563eb", marginLeft: "auto" }}
+                  />
+                )}
+              </div>
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#64748b",
+                  margin: 0,
+                }}
+              >
+                {method.desc}
+              </p>
+            </button>
           ))}
         </div>
       </div>
@@ -835,70 +1177,6 @@ export default function BillingPage() {
               </button>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Payment Method */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "1rem",
-          border: "1px solid #e2e8f0",
-          padding: "clamp(1rem, 3vw, 1.5rem)",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
-            fontWeight: "600",
-            color: "#0f172a",
-            marginBottom: "clamp(0.75rem, 2vw, 1rem)",
-          }}
-        >
-          Payment Method
-        </h2>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "clamp(0.5rem, 2vw, 1rem)",
-            padding: "clamp(0.75rem, 2vw, 1rem)",
-            border: "1px dashed #e2e8f0",
-            borderRadius: "0.75rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <CreditCard
-            style={{
-              width: "clamp(1.25rem, 3vw, 1.5rem)",
-              height: "clamp(1.25rem, 3vw, 1.5rem)",
-              color: "#94a3b8",
-              flexShrink: 0,
-            }}
-          />
-          <div style={{ minWidth: 0 }}>
-            <p
-              style={{
-                fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
-                color: "#64748b",
-              }}
-            >
-              {currentPlan?.planId === "free"
-                ? "No payment method required for Free plan"
-                : "Payments processed securely via Paystack"}
-            </p>
-            <p
-              style={{
-                fontSize: "clamp(0.6875rem, 1.5vw, 0.75rem)",
-                color: "#94a3b8",
-                marginTop: "0.125rem",
-              }}
-            >
-              {currentPlan?.planId === "free"
-                ? "Upgrade to add a payment method"
-                : "Card, bank transfer, and USSD accepted"}
-            </p>
-          </div>
         </div>
       </div>
 
