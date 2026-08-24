@@ -25,14 +25,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const userRef = db.collection("users").doc(userId);
-    const userSnap = await userRef.get();
-    if (!userSnap.exists)
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-
     const batch = db.batch();
+    const now = FieldValue.serverTimestamp();
 
-    // Downgrade to Free
+    // 1. Update ROOT user doc (used by file manager, quota, etc.)
+    const userRef = db.collection("users").doc(userId);
     batch.update(userRef, {
       planId: "free",
       planName: "Free",
@@ -43,11 +40,32 @@ export async function POST(req: NextRequest) {
       fileStorage: 100 * 1024 * 1024,
       status: "expired",
       gracePeriodEnd: null,
-      downgradedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+      downgradedAt: now,
+      updatedAt: now,
     });
 
-    // Deactivate excess websites
+    // 2. Update billing/plan subcollection (used by billing page subscription)
+    const billingPlanRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("billing")
+      .doc("plan");
+    batch.set(
+      billingPlanRef,
+      {
+        planId: "free",
+        planName: "Free",
+        price: 0,
+        websites: 2,
+        checkInterval: 30,
+        status: "expired",
+        gracePeriodEnd: null,
+        updatedAt: now,
+      },
+      { merge: true },
+    );
+
+    // 3. Deactivate excess websites
     const websitesSnap = await db
       .collection("websites")
       .where("userId", "==", userId)
@@ -61,7 +79,7 @@ export async function POST(req: NextRequest) {
         monitoringStatus: count > 2 ? "inactive" : "active",
         inactiveReason:
           count > 2 ? "Plan downgraded to Free — upgrade to reactivate" : null,
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: now,
       });
     });
 

@@ -3,17 +3,9 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import {
-  Check,
-  CreditCard,
-  Loader2,
-  Sparkles,
-  HardDrive,
-  AlertTriangle,
-} from "lucide-react";
+import { Check, CreditCard, Loader2, Sparkles, HardDrive } from "lucide-react";
 import {
   subscribeToUserPlan,
-  setUserPlan,
   subscribeToInvoices,
   subscribeToWebsites,
   addInvoice,
@@ -25,6 +17,7 @@ import {
   checkSubscriptionStatus,
   formatFileStorage,
 } from "@/lib/subscription";
+import { useToast } from "@/components/ToastProvider";
 
 interface PlanOption {
   id: string;
@@ -137,6 +130,7 @@ const plans: PlanOption[] = [
 
 export default function BillingPage() {
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [currentPlan, setCurrentPlan] = useState<UserPlan | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -247,13 +241,15 @@ export default function BillingPage() {
       .then((res) => res.json())
       .then((verifyData) => {
         if (!verifyData.verified) {
-          alert("Payment verification failed. Please contact support.");
+          showToast(
+            "Payment verification failed. Please contact support.",
+            "error",
+          );
           setProcessingPlanId(null);
           pendingPlanRef.current = null;
           return;
         }
 
-        // Call the new renew API instead of direct Firestore write
         return fetch("/api/billing/renew", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -272,13 +268,16 @@ export default function BillingPage() {
         }
       })
       .then(() => {
-        alert("Payment successful! You are now on the " + plan.name + " plan.");
+        showToast(
+          `Payment successful! You are now on the ${plan.name} plan.`,
+          "success",
+        );
         setProcessingPlanId(null);
         pendingPlanRef.current = null;
       })
       .catch((err) => {
         console.error("Payment processing error:", err);
-        alert("Something went wrong. Please contact support.");
+        showToast("Something went wrong. Please contact support.", "error");
         setProcessingPlanId(null);
         pendingPlanRef.current = null;
       });
@@ -291,28 +290,36 @@ export default function BillingPage() {
 
   const handlePayment = function (plan: PlanOption) {
     if (plan.price === 0) {
-      // Downgrade to Free
       fetch("/api/billing/downgrade", { method: "POST" })
-        .then(() => {
-          alert("Downgraded to Free plan successfully!");
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            showToast("Downgraded to Free plan successfully!", "success");
+          } else {
+            showToast(data.error || "Downgrade failed", "error");
+          }
         })
         .catch((err) => {
           console.error(err);
-          alert("Failed to downgrade. Please try again.");
+          showToast("Failed to downgrade. Please try again.", "error");
         });
       return;
     }
 
     if (!paystackReady || !(window as any).PaystackPop) {
-      alert(
+      showToast(
         "Payment system still loading... please wait a moment and try again",
+        "warning",
       );
       return;
     }
 
     const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
     if (!paystackKey) {
-      alert("Payment configuration error. Please contact support.");
+      showToast(
+        "Payment configuration error. Please contact support.",
+        "error",
+      );
       return;
     }
 
@@ -338,7 +345,11 @@ export default function BillingPage() {
           planName: plan.name,
           userId: user?.uid || "",
           custom_fields: [
-            { display_name: "Plan", variable_name: "plan", value: plan.name },
+            {
+              display_name: "Plan",
+              variable_name: "plan",
+              value: plan.name,
+            },
           ],
         },
         callback: onPaystackSuccess,
@@ -346,7 +357,7 @@ export default function BillingPage() {
       });
       handler.openIframe();
     } catch (err: any) {
-      alert("Failed to initialize payment. Please try again.");
+      showToast("Failed to initialize payment. Please try again.", "error");
       setProcessingPlanId(null);
       pendingPlanRef.current = null;
     }

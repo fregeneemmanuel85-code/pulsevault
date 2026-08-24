@@ -30,11 +30,13 @@ export async function POST(req: NextRequest) {
     const config = getPlanConfig(planId);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const timestamp = FieldValue.serverTimestamp();
 
+    const batch = db.batch();
+
+    // 1. Update ROOT user doc
     const userRef = db.collection("users").doc(userId);
-
-    // Update plan
-    await userRef.update({
+    batch.update(userRef, {
       planId,
       planName: config.name,
       price: config.price,
@@ -46,23 +48,46 @@ export async function POST(req: NextRequest) {
       gracePeriodEnd: null,
       startedAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
-      updatedAt: FieldValue.serverTimestamp(),
+      updatedAt: timestamp,
     });
 
-    // Reactivate ALL websites
+    // 2. Update billing/plan subcollection
+    const billingPlanRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("billing")
+      .doc("plan");
+    batch.set(
+      billingPlanRef,
+      {
+        planId,
+        planName: config.name,
+        price: config.price,
+        websites: config.websites,
+        checkInterval: config.checkInterval,
+        status: "active",
+        gracePeriodEnd: null,
+        startedAt: now.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        updatedAt: timestamp,
+      },
+      { merge: true },
+    );
+
+    // 3. Reactivate ALL websites
     const websitesSnap = await db
       .collection("websites")
       .where("userId", "==", userId)
       .get();
 
-    const batch = db.batch();
     websitesSnap.docs.forEach((doc: any) => {
       batch.update(doc.ref, {
         monitoringStatus: "active",
         inactiveReason: null,
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: timestamp,
       });
     });
+
     await batch.commit();
 
     return NextResponse.json({
