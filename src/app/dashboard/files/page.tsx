@@ -142,7 +142,10 @@ export default function FilesPage() {
       >
         <Loader2
           size={32}
-          style={{ color: "#2563eb", animation: "spin 1s linear infinite" }}
+          style={{
+            color: "var(--text-blue)",
+            animation: "spin 1s linear infinite",
+          }}
         />
       </div>
     );
@@ -160,20 +163,26 @@ export default function FilesPage() {
         style={{
           fontSize: "clamp(1.5rem, 4vw, 2rem)",
           fontWeight: "800",
-          color: "#f1f5f9",
+          color: "var(--text-primary)",
           marginBottom: "0.5rem",
         }}
       >
         File Vault
       </h1>
-      <p style={{ color: "#64748b", marginBottom: "clamp(1.5rem, 4vw, 2rem)" }}>
+      <p
+        style={{
+          color: "var(--text-muted)",
+          marginBottom: "clamp(1.5rem, 4vw, 2rem)",
+        }}
+      >
         Upload and manage your ZIP backups and archives.
       </p>
 
+      {/* Storage bar */}
       <div
         style={{
-          backgroundColor: "rgba(15, 23, 42, 0.6)",
-          border: "1px solid rgba(51, 65, 85, 0.5)",
+          backgroundColor: "var(--bg-card)",
+          border: "1px solid var(--border-color)",
           borderRadius: "1rem",
           padding: "clamp(1rem, 3vw, 1.25rem)",
           marginBottom: "1.5rem",
@@ -188,18 +197,18 @@ export default function FilesPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <HardDrive size={18} style={{ color: "#60a5fa" }} />
+            <HardDrive size={18} style={{ color: "var(--text-blue)" }} />
             <span
               style={{
                 fontWeight: "600",
-                color: "#f1f5f9",
+                color: "var(--text-primary)",
                 fontSize: "0.875rem",
               }}
             >
               Storage ({quota.plan})
             </span>
           </div>
-          <span style={{ color: "#94a3b8", fontSize: "0.8125rem" }}>
+          <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
             {formatBytes(quota.used)} / {formatBytes(quota.limit)}
           </span>
         </div>
@@ -207,7 +216,7 @@ export default function FilesPage() {
           style={{
             width: "100%",
             height: "0.5rem",
-            backgroundColor: "rgba(51, 65, 85, 0.4)",
+            backgroundColor: "var(--border-color)",
             borderRadius: "9999px",
             overflow: "hidden",
           }}
@@ -218,10 +227,10 @@ export default function FilesPage() {
               height: "100%",
               backgroundColor:
                 percentUsed > 90
-                  ? "#ef4444"
+                  ? "var(--text-red)"
                   : percentUsed > 70
-                    ? "#f59e0b"
-                    : "#22c55e",
+                    ? "var(--text-yellow)"
+                    : "var(--text-green)",
               borderRadius: "9999px",
               transition: "width 0.3s ease",
             }}
@@ -230,7 +239,7 @@ export default function FilesPage() {
         {quota.remaining < 50 * 1024 * 1024 && (
           <p
             style={{
-              color: "#f87171",
+              color: "var(--text-red)",
               fontSize: "0.75rem",
               marginTop: "0.5rem",
               display: "flex",
@@ -256,7 +265,7 @@ export default function FilesPage() {
         <h3
           style={{
             fontWeight: "600",
-            color: "#f1f5f9",
+            color: "var(--text-primary)",
             marginBottom: "1rem",
             fontSize: "1rem",
           }}
@@ -269,15 +278,15 @@ export default function FilesPage() {
             style={{
               textAlign: "center",
               padding: "3rem 1rem",
-              color: "#64748b",
-              backgroundColor: "rgba(15, 23, 42, 0.4)",
-              border: "1px solid rgba(51, 65, 85, 0.4)",
+              color: "var(--text-muted)",
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
               borderRadius: "1rem",
             }}
           >
             <HardDrive
               size={32}
-              style={{ margin: "0 auto 0.75rem", color: "#475569" }}
+              style={{ margin: "0 auto 0.75rem", color: "var(--text-muted)" }}
             />
             <p>No ZIP files yet. Upload your first backup above.</p>
           </div>
@@ -293,15 +302,15 @@ export default function FilesPage() {
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "clamp(0.875rem, 2vw, 1rem)",
-                  backgroundColor: "rgba(15, 23, 42, 0.6)",
-                  border: "1px solid rgba(51, 65, 85, 0.5)",
+                  backgroundColor: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
                   borderRadius: "0.75rem",
                 }}
               >
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p
                     style={{
-                      color: "#f1f5f9",
+                      color: "var(--text-primary)",
                       fontWeight: "500",
                       fontSize: "0.875rem",
                       margin: "0 0 0.25rem",
@@ -313,9 +322,13 @@ export default function FilesPage() {
                     {file.originalName}
                   </p>
                   <p
-                    style={{ color: "#64748b", fontSize: "0.75rem", margin: 0 }}
+                    style={{
+                      color: "var(--text-muted)",
+                      fontSize: "0.75rem",
+                      margin: 0,
+                    }}
                   >
-                    {formatBytes(file.size)} •{" "}
+                    {formatBytes(file.size)} ·{" "}
                     {file.createdAt
                       ? new Date(file.createdAt).toLocaleDateString()
                       : "Just now"}
@@ -337,10 +350,10 @@ export default function FilesPage() {
                       alignItems: "center",
                       gap: "0.375rem",
                       padding: "0.5rem 0.875rem",
-                      backgroundColor: "rgba(37, 99, 235, 0.1)",
-                      color: "#60a5fa",
+                      backgroundColor: "var(--bg-badge-blue)",
+                      color: "var(--text-blue)",
                       borderRadius: "0.5rem",
-                      border: "1px solid rgba(37, 99, 235, 0.15)",
+                      border: "1px solid var(--border-color)",
                       fontSize: "0.8125rem",
                       fontWeight: "500",
                       cursor: downloading === file.id ? "wait" : "pointer",
@@ -361,9 +374,9 @@ export default function FilesPage() {
                     disabled={deleting === file.id}
                     style={{
                       padding: "0.5rem",
-                      backgroundColor: "rgba(239, 68, 68, 0.08)",
-                      border: "1px solid rgba(239, 68, 68, 0.15)",
-                      color: "#f87171",
+                      backgroundColor: "var(--bg-badge-red)",
+                      border: "1px solid var(--border-color)",
+                      color: "var(--text-red)",
                       borderRadius: "0.5rem",
                       cursor: deleting === file.id ? "wait" : "pointer",
                     }}

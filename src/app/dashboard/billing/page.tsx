@@ -9,7 +9,7 @@ import {
   Loader2,
   Sparkles,
   HardDrive,
-  X,
+  ChevronDown,
 } from "lucide-react";
 import {
   subscribeToUserPlan,
@@ -135,6 +135,49 @@ const plans: PlanOption[] = [
   },
 ];
 
+// Approximate exchange rates from NGN
+const EXCHANGE_RATES: Record<string, number> = {
+  NGN: 1,
+  USD: 0.00065,
+  EUR: 0.0006,
+  GBP: 0.00051,
+  KES: 0.095,
+  GHS: 0.0098,
+  ZAR: 0.012,
+};
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  NGN: "₦",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  KES: "KSh",
+  GHS: "₵",
+  ZAR: "R",
+};
+
+const FLUTTERWAVE_CURRENCIES = [
+  "USD",
+  "EUR",
+  "GBP",
+  "KES",
+  "GHS",
+  "ZAR",
+  "NGN",
+];
+
+function convertPrice(ngnPrice: number, currency: string): number {
+  if (currency === "NGN") return ngnPrice;
+  return Math.round(ngnPrice * (EXCHANGE_RATES[currency] || 1));
+}
+
+function formatPrice(ngnPrice: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOLS[currency] || currency;
+  const converted = convertPrice(ngnPrice, currency);
+  if (converted === 0) return "Free";
+  return `${symbol}${converted.toLocaleString()} ${currency}`;
+}
+
 export default function BillingPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -150,6 +193,8 @@ export default function BillingPage() {
   const [paymentMethod, setPaymentMethod] = useState<
     "paystack" | "flutterwave"
   >("paystack");
+  const [flutterwaveCurrency, setFlutterwaveCurrency] = useState("USD");
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
   const pendingPlanRef = useRef<PlanOption | null>(null);
   const scriptLoadedRef = useRef({ paystack: false, flutterwave: false });
@@ -359,13 +404,14 @@ export default function BillingPage() {
 
     const txRef =
       "PV-FW-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+    const amount = convertPrice(plan.price, flutterwaveCurrency);
 
     try {
       (window as any).FlutterwaveCheckout({
         public_key: flutterwaveKey,
         tx_ref: txRef,
-        amount: plan.price,
-        currency: "NGN",
+        amount: amount,
+        currency: flutterwaveCurrency,
         payment_options: "card,ussd,banktransfer",
         customer: {
           email: userEmail,
@@ -378,7 +424,6 @@ export default function BillingPage() {
           logo: "https://pulsevault.website/logo.png",
         },
         callback: function (response: any) {
-          // Close Flutterwave modal
           const modal = document.querySelector("#flutterwave-overlay");
           if (modal) (modal as any).remove?.();
 
@@ -397,7 +442,7 @@ export default function BillingPage() {
                 if (data.success) {
                   return addInvoice({
                     date: new Date().toLocaleDateString(),
-                    amount: "NGN " + plan.price.toLocaleString(),
+                    amount: `${CURRENCY_SYMBOLS[flutterwaveCurrency]}${amount.toLocaleString()} ${flutterwaveCurrency}`,
                     status: "Paid",
                     plan: plan.name,
                     txRef,
@@ -559,7 +604,7 @@ export default function BillingPage() {
           style={{
             width: "2rem",
             height: "2rem",
-            color: "#2563eb",
+            color: "var(--text-blue)",
             animation: "spin 1s linear infinite",
           }}
         />
@@ -595,19 +640,20 @@ export default function BillingPage() {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              backgroundColor: "white",
+              backgroundColor: "var(--bg-card)",
               borderRadius: "1rem",
               padding: "clamp(1.5rem, 4vw, 2rem)",
               maxWidth: "28rem",
               width: "100%",
               boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+              border: "1px solid var(--border-color)",
             }}
           >
             <h3
               style={{
                 fontSize: "clamp(1rem, 3vw, 1.25rem)",
                 fontWeight: "700",
-                color: "#0f172a",
+                color: "var(--text-primary)",
                 marginBottom: "0.75rem",
               }}
             >
@@ -615,7 +661,7 @@ export default function BillingPage() {
             </h3>
             <p
               style={{
-                color: "#64748b",
+                color: "var(--text-secondary)",
                 fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
                 lineHeight: 1.6,
                 marginBottom: "1.5rem",
@@ -637,9 +683,9 @@ export default function BillingPage() {
                 style={{
                   padding: "0.625rem 1.25rem",
                   borderRadius: "0.5rem",
-                  border: "1px solid #e2e8f0",
-                  backgroundColor: "white",
-                  color: "#475569",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "var(--bg-input)",
+                  color: "var(--text-secondary)",
                   fontSize: "0.875rem",
                   fontWeight: "500",
                   cursor: "pointer",
@@ -653,7 +699,7 @@ export default function BillingPage() {
                   padding: "0.625rem 1.25rem",
                   borderRadius: "0.5rem",
                   border: "none",
-                  backgroundColor: "#ef4444",
+                  backgroundColor: "var(--text-red)",
                   color: "white",
                   fontSize: "0.875rem",
                   fontWeight: "600",
@@ -672,14 +718,14 @@ export default function BillingPage() {
           style={{
             fontSize: "clamp(1.25rem, 4vw, 1.75rem)",
             fontWeight: "700",
-            color: "#0f172a",
+            color: "var(--text-primary)",
           }}
         >
           Billing
         </h1>
         <p
           style={{
-            color: "#64748b",
+            color: "var(--text-muted)",
             fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
           }}
         >
@@ -690,9 +736,9 @@ export default function BillingPage() {
       {/* Current Plan */}
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--bg-card)",
           borderRadius: "1rem",
-          border: "1px solid #e2e8f0",
+          border: "1px solid var(--border-color)",
           padding: "clamp(1rem, 3vw, 1.5rem)",
         }}
       >
@@ -711,7 +757,7 @@ export default function BillingPage() {
               style={{
                 fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
                 fontWeight: "600",
-                color: "#0f172a",
+                color: "var(--text-primary)",
               }}
             >
               Current Plan
@@ -719,25 +765,31 @@ export default function BillingPage() {
             <p
               style={{
                 fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
-                color: "#64748b",
+                color: "var(--text-muted)",
                 marginTop: "0.25rem",
               }}
             >
               {currentPlan?.planName || "Free"}
               {currentPlan?.expiresAt && planStatus === "active" && (
-                <span style={{ color: "#22c55e", marginLeft: "0.5rem" }}>
+                <span
+                  style={{ color: "var(--text-green)", marginLeft: "0.5rem" }}
+                >
                   · Expires in {daysUntilExpiry} day
                   {daysUntilExpiry !== 1 ? "s" : ""}
                 </span>
               )}
               {planStatus === "grace" && (
-                <span style={{ color: "#f59e0b", marginLeft: "0.5rem" }}>
+                <span
+                  style={{ color: "var(--text-yellow)", marginLeft: "0.5rem" }}
+                >
                   · Grace period: {graceDaysLeft} day
                   {graceDaysLeft !== 1 ? "s" : ""} left
                 </span>
               )}
               {planStatus === "expired" && (
-                <span style={{ color: "#ef4444", marginLeft: "0.5rem" }}>
+                <span
+                  style={{ color: "var(--text-red)", marginLeft: "0.5rem" }}
+                >
                   · Expired — downgraded to Free
                 </span>
               )}
@@ -751,20 +803,20 @@ export default function BillingPage() {
               borderRadius: "9999px",
               backgroundColor:
                 planStatus === "expired"
-                  ? "#fef2f2"
+                  ? "var(--bg-badge-red)"
                   : planStatus === "grace"
-                    ? "#fffbeb"
+                    ? "var(--bg-badge-yellow)"
                     : currentPlan?.planId === "free"
-                      ? "#f0fdf4"
-                      : "#eff6ff",
+                      ? "var(--bg-badge-green)"
+                      : "var(--bg-badge-blue)",
               color:
                 planStatus === "expired"
-                  ? "#b91c1c"
+                  ? "var(--text-red)"
                   : planStatus === "grace"
-                    ? "#b45309"
+                    ? "var(--text-yellow)"
                     : currentPlan?.planId === "free"
-                      ? "#15803d"
-                      : "#2563eb",
+                      ? "var(--text-green)"
+                      : "var(--text-blue)",
               flexShrink: 0,
             }}
           >
@@ -795,7 +847,7 @@ export default function BillingPage() {
                   style={{
                     width: "clamp(5rem, 12vw, 8rem)",
                     height: "0.5rem",
-                    backgroundColor: "#f1f5f9",
+                    backgroundColor: "var(--border-color)",
                     borderRadius: "9999px",
                     marginTop: "0.5rem",
                     overflow: "hidden",
@@ -806,7 +858,9 @@ export default function BillingPage() {
                       width: planUsage.percent + "%",
                       height: "100%",
                       backgroundColor:
-                        planUsage.percent > 90 ? "#ef4444" : "#2563eb",
+                        planUsage.percent > 90
+                          ? "var(--text-red)"
+                          : "var(--text-blue)",
                       borderRadius: "9999px",
                     }}
                   />
@@ -817,12 +871,16 @@ export default function BillingPage() {
             {
               label: "AI Credits",
               value: `${planUsage.aiCredits.toLocaleString()}/day`,
-              icon: <Sparkles size={12} style={{ color: "#f59e0b" }} />,
+              icon: (
+                <Sparkles size={12} style={{ color: "var(--text-yellow)" }} />
+              ),
             },
             {
               label: "File Vault",
               value: formatFileStorage(planUsage.fileStorage),
-              icon: <HardDrive size={12} style={{ color: "#60a5fa" }} />,
+              icon: (
+                <HardDrive size={12} style={{ color: "var(--text-blue)" }} />
+              ),
             },
             {
               label: "Price",
@@ -834,7 +892,7 @@ export default function BillingPage() {
               <p
                 style={{
                   fontSize: "clamp(0.6875rem, 1.5vw, 0.75rem)",
-                  color: "#94a3b8",
+                  color: "var(--text-muted)",
                   textTransform: "uppercase",
                   fontWeight: "600",
                   display: "flex",
@@ -849,7 +907,7 @@ export default function BillingPage() {
                 style={{
                   fontSize: "clamp(1rem, 3vw, 1.25rem)",
                   fontWeight: "700",
-                  color: "#0f172a",
+                  color: "var(--text-primary)",
                   marginTop: "0.25rem",
                 }}
               >
@@ -858,7 +916,7 @@ export default function BillingPage() {
                   <span
                     style={{
                       fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                      color: "#94a3b8",
+                      color: "var(--text-muted)",
                       fontWeight: "400",
                     }}
                   >
@@ -875,9 +933,9 @@ export default function BillingPage() {
       {/* Payment Method Selector */}
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--bg-card)",
           borderRadius: "1rem",
-          border: "1px solid #e2e8f0",
+          border: "1px solid var(--border-color)",
           padding: "clamp(1rem, 3vw, 1.5rem)",
         }}
       >
@@ -885,7 +943,7 @@ export default function BillingPage() {
           style={{
             fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
             fontWeight: "600",
-            color: "#0f172a",
+            color: "var(--text-primary)",
             marginBottom: "clamp(0.75rem, 2vw, 1rem)",
           }}
         >
@@ -916,10 +974,12 @@ export default function BillingPage() {
                 borderRadius: "0.75rem",
                 border:
                   paymentMethod === method.id
-                    ? "2px solid #2563eb"
-                    : "1px solid #e2e8f0",
+                    ? "2px solid var(--text-blue)"
+                    : "1px solid var(--border-color)",
                 backgroundColor:
-                  paymentMethod === method.id ? "#eff6ff" : "white",
+                  paymentMethod === method.id
+                    ? "var(--bg-badge-blue)"
+                    : "var(--bg-card)",
                 cursor: "pointer",
                 textAlign: "left",
                 transition: "all 0.2s",
@@ -937,7 +997,7 @@ export default function BillingPage() {
                 <span
                   style={{
                     fontWeight: "600",
-                    color: "#0f172a",
+                    color: "var(--text-primary)",
                     fontSize: "0.875rem",
                   }}
                 >
@@ -946,14 +1006,14 @@ export default function BillingPage() {
                 {paymentMethod === method.id && (
                   <Check
                     size={14}
-                    style={{ color: "#2563eb", marginLeft: "auto" }}
+                    style={{ color: "var(--text-blue)", marginLeft: "auto" }}
                   />
                 )}
               </div>
               <p
                 style={{
                   fontSize: "0.75rem",
-                  color: "#64748b",
+                  color: "var(--text-muted)",
                   margin: 0,
                 }}
               >
@@ -962,6 +1022,102 @@ export default function BillingPage() {
             </button>
           ))}
         </div>
+
+        {/* Flutterwave Currency Selector */}
+        {paymentMethod === "flutterwave" && (
+          <div style={{ marginTop: "1rem" }}>
+            <p
+              style={{
+                fontSize: "0.8125rem",
+                fontWeight: "600",
+                color: "var(--text-primary)",
+                marginBottom: "0.5rem",
+              }}
+            >
+              Select Currency
+            </p>
+            <div style={{ position: "relative", maxWidth: "200px" }}>
+              <button
+                onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "var(--bg-input)",
+                  color: "var(--text-primary)",
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
+              >
+                <span>
+                  {CURRENCY_SYMBOLS[flutterwaveCurrency]} {flutterwaveCurrency}
+                </span>
+                <ChevronDown size={16} style={{ color: "var(--text-muted)" }} />
+              </button>
+              {showCurrencyDropdown && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 0.25rem)",
+                    left: 0,
+                    right: 0,
+                    backgroundColor: "var(--bg-card)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "0.5rem",
+                    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                    zIndex: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  {FLUTTERWAVE_CURRENCIES.map((curr) => (
+                    <button
+                      key={curr}
+                      onClick={() => {
+                        setFlutterwaveCurrency(curr);
+                        setShowCurrencyDropdown(false);
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem 0.875rem",
+                        textAlign: "left",
+                        border: "none",
+                        borderBottom: "1px solid var(--border-light)",
+                        backgroundColor:
+                          flutterwaveCurrency === curr
+                            ? "var(--bg-badge-blue)"
+                            : "var(--bg-card)",
+                        color:
+                          flutterwaveCurrency === curr
+                            ? "var(--text-blue)"
+                            : "var(--text-primary)",
+                        fontSize: "0.875rem",
+                        fontWeight:
+                          flutterwaveCurrency === curr ? "600" : "400",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {CURRENCY_SYMBOLS[curr]} {curr}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-muted)",
+                marginTop: "0.375rem",
+              }}
+            >
+              Prices shown below will update to {flutterwaveCurrency}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Plans Grid */}
@@ -970,7 +1126,7 @@ export default function BillingPage() {
           style={{
             fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
             fontWeight: "600",
-            color: "#0f172a",
+            color: "var(--text-primary)",
             marginBottom: "clamp(0.75rem, 2vw, 1rem)",
           }}
         >
@@ -988,12 +1144,12 @@ export default function BillingPage() {
             <div
               key={plan.id}
               style={{
-                backgroundColor: "white",
+                backgroundColor: "var(--bg-card)",
                 borderRadius: "1rem",
                 border:
                   currentPlan?.planId === plan.id
-                    ? "2px solid #2563eb"
-                    : "1px solid #e2e8f0",
+                    ? "2px solid var(--text-blue)"
+                    : "1px solid var(--border-color)",
                 padding: "clamp(1rem, 3vw, 1.5rem)",
                 position: "relative",
                 display: "flex",
@@ -1010,7 +1166,7 @@ export default function BillingPage() {
                     fontWeight: "600",
                     padding: "0.25rem 0.75rem",
                     borderRadius: "9999px",
-                    backgroundColor: "#2563eb",
+                    backgroundColor: "var(--text-blue)",
                     color: "white",
                     whiteSpace: "nowrap",
                   }}
@@ -1023,7 +1179,7 @@ export default function BillingPage() {
                 style={{
                   fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
                   fontWeight: "600",
-                  color: "#0f172a",
+                  color: "var(--text-primary)",
                 }}
               >
                 {plan.name}
@@ -1040,26 +1196,39 @@ export default function BillingPage() {
                   style={{
                     fontSize: "clamp(1.5rem, 4vw, 2rem)",
                     fontWeight: "700",
-                    color: "#0f172a",
+                    color: "var(--text-primary)",
                   }}
                 >
-                  NGN {plan.price.toLocaleString()}
+                  {paymentMethod === "flutterwave"
+                    ? formatPrice(plan.price, flutterwaveCurrency)
+                    : `₦${plan.price.toLocaleString()}`}
                 </span>
                 {plan.interval && (
                   <span
                     style={{
                       fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                      color: "#94a3b8",
+                      color: "var(--text-muted)",
                     }}
                   >
                     {plan.interval}
                   </span>
                 )}
               </div>
+              {paymentMethod === "flutterwave" && plan.price > 0 && (
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  ≈ ₦{plan.price.toLocaleString()} NGN
+                </p>
+              )}
               <p
                 style={{
                   fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                  color: "#64748b",
+                  color: "var(--text-muted)",
                   marginTop: "0.25rem",
                 }}
               >
@@ -1089,14 +1258,14 @@ export default function BillingPage() {
                         alignItems: "flex-start",
                         gap: "0.5rem",
                         fontSize: "clamp(0.75rem, 2vw, 0.8125rem)",
-                        color: "#475569",
+                        color: "var(--text-secondary)",
                       }}
                     >
                       <Check
                         style={{
                           width: "clamp(0.75rem, 2vw, 0.875rem)",
                           height: "clamp(0.75rem, 2vw, 0.875rem)",
-                          color: "#22c55e",
+                          color: "var(--text-green)",
                           flexShrink: 0,
                           marginTop: "0.125rem",
                         }}
@@ -1117,8 +1286,8 @@ export default function BillingPage() {
                               fontWeight: "600",
                               padding: "0.125rem 0.5rem",
                               borderRadius: "9999px",
-                              backgroundColor: "#fef3c7",
-                              color: "#b45309",
+                              backgroundColor: "var(--bg-badge-yellow)",
+                              color: "var(--text-yellow)",
                               whiteSpace: "nowrap",
                             }}
                           >
@@ -1143,18 +1312,19 @@ export default function BillingPage() {
                   marginTop: "clamp(1rem, 3vw, 1.5rem)",
                   padding: "clamp(0.5rem, 2vw, 0.625rem)",
                   borderRadius: "0.5rem",
-                  border: plan.price === 0 ? "1px solid #e2e8f0" : "none",
+                  border:
+                    plan.price === 0 ? "1px solid var(--border-color)" : "none",
                   backgroundColor:
                     currentPlan?.planId === plan.id && planStatus === "active"
-                      ? "#f1f5f9"
+                      ? "var(--border-color)"
                       : plan.price === 0
-                        ? "white"
-                        : "#2563eb",
+                        ? "var(--bg-card)"
+                        : "var(--text-blue)",
                   color:
                     currentPlan?.planId === plan.id && planStatus === "active"
-                      ? "#94a3b8"
+                      ? "var(--text-muted)"
                       : plan.price === 0
-                        ? "#475569"
+                        ? "var(--text-secondary)"
                         : "white",
                   fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                   fontWeight: "500",
@@ -1183,9 +1353,9 @@ export default function BillingPage() {
       {/* Invoice History */}
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "var(--bg-card)",
           borderRadius: "1rem",
-          border: "1px solid #e2e8f0",
+          border: "1px solid var(--border-color)",
           padding: "clamp(1rem, 3vw, 1.5rem)",
           overflowX: "auto",
         }}
@@ -1194,7 +1364,7 @@ export default function BillingPage() {
           style={{
             fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
             fontWeight: "600",
-            color: "#0f172a",
+            color: "var(--text-primary)",
             marginBottom: "clamp(0.75rem, 2vw, 1rem)",
           }}
         >
@@ -1203,7 +1373,7 @@ export default function BillingPage() {
         {invoices.length === 0 ? (
           <p
             style={{
-              color: "#94a3b8",
+              color: "var(--text-muted)",
               fontSize: "clamp(0.8125rem, 2vw, 0.875rem)",
             }}
           >
@@ -1219,7 +1389,7 @@ export default function BillingPage() {
               }}
             >
               <thead>
-                <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+                <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
                   {["Invoice", "Date", "Plan", "Amount", "Status"].map((h) => (
                     <th
                       key={h}
@@ -1228,7 +1398,7 @@ export default function BillingPage() {
                         padding: "0.75rem 0.5rem",
                         fontSize: "clamp(0.625rem, 1.5vw, 0.6875rem)",
                         fontWeight: "600",
-                        color: "#94a3b8",
+                        color: "var(--text-muted)",
                         textTransform: "uppercase",
                         whiteSpace: "nowrap",
                       }}
@@ -1242,13 +1412,14 @@ export default function BillingPage() {
                 {invoices.map((inv) => (
                   <tr
                     key={inv.id}
-                    style={{ borderBottom: "1px solid #f1f5f9" }}
+                    style={{ borderBottom: "1px solid var(--border-light)" }}
                   >
                     <td
                       style={{
                         padding: "0.75rem 0.5rem",
                         fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                         fontWeight: "500",
+                        color: "var(--text-primary)",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1258,7 +1429,7 @@ export default function BillingPage() {
                       style={{
                         padding: "0.75rem 0.5rem",
                         fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1268,7 +1439,7 @@ export default function BillingPage() {
                       style={{
                         padding: "0.75rem 0.5rem",
                         fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1279,6 +1450,7 @@ export default function BillingPage() {
                         padding: "0.75rem 0.5rem",
                         fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                         fontWeight: "500",
+                        color: "var(--text-primary)",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1297,8 +1469,13 @@ export default function BillingPage() {
                           padding: "0.25rem 0.625rem",
                           borderRadius: "0.25rem",
                           backgroundColor:
-                            inv.status === "Paid" ? "#f0fdf4" : "#fffbeb",
-                          color: inv.status === "Paid" ? "#15803d" : "#b45309",
+                            inv.status === "Paid"
+                              ? "var(--bg-badge-green)"
+                              : "var(--bg-badge-yellow)",
+                          color:
+                            inv.status === "Paid"
+                              ? "var(--text-green)"
+                              : "var(--text-yellow)",
                         }}
                       >
                         {inv.status}

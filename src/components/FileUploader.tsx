@@ -114,8 +114,8 @@ export default function FileUploader({
   return (
     <div
       style={{
-        backgroundColor: "rgba(15, 23, 42, 0.6)",
-        border: "1px solid rgba(51, 65, 85, 0.5)",
+        backgroundColor: "var(--bg-card)",
+        border: "1px solid var(--border-color)",
         borderRadius: "1rem",
         padding: "clamp(1.25rem, 3vw, 1.5rem)",
       }}
@@ -123,7 +123,7 @@ export default function FileUploader({
       <h3
         style={{
           fontWeight: "600",
-          color: "#f1f5f9",
+          color: "var(--text-primary)",
           marginBottom: "1rem",
           fontSize: "1rem",
         }}
@@ -138,16 +138,19 @@ export default function FileUploader({
           alignItems: "center",
           gap: "0.5rem",
           padding: "0.625rem 0.875rem",
-          backgroundColor: "rgba(59, 130, 246, 0.08)",
-          border: "1px solid rgba(59, 130, 246, 0.2)",
+          backgroundColor: "var(--bg-badge-blue)",
+          border: "1px solid var(--border-color)",
           borderRadius: "0.5rem",
           marginBottom: "1rem",
-          color: "#93bbfc",
+          color: "var(--text-blue)",
           fontSize: "0.8125rem",
           fontWeight: "500",
         }}
       >
-        <FileArchive size={16} style={{ color: "#60a5fa", flexShrink: 0 }} />
+        <FileArchive
+          size={16}
+          style={{ color: "var(--text-blue)", flexShrink: 0 }}
+        />
         <span>
           Only <strong>.zip</strong> files are accepted. Please compress your
           files with WinRAR or any ZIP tool before uploading.
@@ -158,11 +161,11 @@ export default function FileUploader({
       <div
         onClick={() => inputRef.current?.click()}
         style={{
-          border: "2px dashed rgba(51, 65, 85, 0.6)",
+          border: "2px dashed var(--border-color)",
           borderRadius: "0.75rem",
           padding: "2rem",
           textAlign: "center",
-          backgroundColor: "rgba(30, 41, 59, 0.3)",
+          backgroundColor: "var(--bg-body)",
           cursor: "pointer",
           transition: "border-color 0.2s",
         }}
@@ -171,20 +174,22 @@ export default function FileUploader({
           style={{
             width: "2rem",
             height: "2rem",
-            color: "#64748b",
+            color: "var(--text-muted)",
             margin: "0 auto 0.75rem",
           }}
         />
         <p
           style={{
-            color: "#94a3b8",
+            color: "var(--text-secondary)",
             fontSize: "0.875rem",
             margin: "0 0 0.5rem",
           }}
         >
           Click to browse for a ZIP file
         </p>
-        <p style={{ color: "#64748b", fontSize: "0.75rem", margin: 0 }}>
+        <p
+          style={{ color: "var(--text-muted)", fontSize: "0.75rem", margin: 0 }}
+        >
           Max size based on your plan quota
         </p>
         <input
@@ -214,7 +219,7 @@ export default function FileUploader({
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "0.625rem 0.875rem",
-                backgroundColor: "rgba(30, 41, 59, 0.5)",
+                backgroundColor: "var(--bg-input)",
                 borderRadius: "0.5rem",
               }}
             >
@@ -228,11 +233,11 @@ export default function FileUploader({
               >
                 <FileArchive
                   size={16}
-                  style={{ color: "#60a5fa", flexShrink: 0 }}
+                  style={{ color: "var(--text-blue)", flexShrink: 0 }}
                 />
                 <span
                   style={{
-                    color: "#cbd5e1",
+                    color: "var(--text-primary)",
                     fontSize: "0.8125rem",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -243,7 +248,7 @@ export default function FileUploader({
                 </span>
                 <span
                   style={{
-                    color: "#64748b",
+                    color: "var(--text-muted)",
                     fontSize: "0.75rem",
                     flexShrink: 0,
                   }}
@@ -256,7 +261,7 @@ export default function FileUploader({
                 style={{
                   background: "none",
                   border: "none",
-                  color: "#94a3b8",
+                  color: "var(--text-muted)",
                   cursor: "pointer",
                   padding: "0.25rem",
                 }}
@@ -273,14 +278,16 @@ export default function FileUploader({
               marginTop: "0.5rem",
             }}
           >
-            <span style={{ color: "#64748b", fontSize: "0.8125rem" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
               Total: {formatBytes(totalSize)}
             </span>
             <button
               onClick={upload}
               disabled={uploading}
               style={{
-                backgroundColor: uploading ? "#1e40af" : "#1d4ed8",
+                backgroundColor: uploading
+                  ? "var(--border-color)"
+                  : "var(--text-blue)",
                 color: "white",
                 border: "none",
                 borderRadius: "0.5rem",
@@ -315,13 +322,13 @@ export default function FileUploader({
           style={{
             marginTop: "0.75rem",
             padding: "0.75rem",
-            backgroundColor: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid rgba(239, 68, 68, 0.2)",
+            backgroundColor: "var(--bg-badge-red)",
+            border: "1px solid var(--border-color)",
             borderRadius: "0.5rem",
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            color: "#fca5a5",
+            color: "var(--text-red)",
             fontSize: "0.8125rem",
           }}
         >
