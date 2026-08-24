@@ -3,21 +3,24 @@ import { headers } from "next/headers";
 import { db } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getPlanConfig, calculateGracePeriodEnd } from "@/lib/subscription";
+import {
+  sendSubscriptionReminderEmail,
+  sendSubscriptionExpiredEmail,
+  sendGracePeriodEmail,
+} from "@/lib/email";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function POST(req: NextRequest) {
-  // Verify this is either a Vercel Cron or an admin call
   const authHeader = headers().get("authorization");
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const now = new Date().toISOString();
-    const nowTime = Date.now();
+    const now = Date.now();
+    const nowISO = new Date().toISOString();
 
-    // Get all non-free users with active or grace status
     const usersSnap = await db
       .collection("users")
       .where("status", "in", ["active", "grace"])
@@ -27,6 +30,7 @@ export async function POST(req: NextRequest) {
       checked: 0,
       graceActivated: 0,
       downgraded: 0,
+      emailsSent: { reminder7d: 0, reminder48h: 0, expired: 0, grace: 0 },
       skipped: 0,
       errors: [] as string[],
     };
@@ -35,7 +39,6 @@ export async function POST(req: NextRequest) {
       const userData = doc.data();
       const planId = userData.planId || "free";
 
-      // Skip free users
       if (planId === "free") {
         results.skipped++;
         continue;
@@ -46,30 +49,157 @@ export async function POST(req: NextRequest) {
       const expiresAt = userData.expiresAt;
       const currentStatus = userData.status || "active";
       const graceEnd = userData.gracePeriodEnd;
+      const userEmail = userData.email;
+      const userName = userData.displayName || userData.name || "there";
+
+      if (!expiresAt) continue;
 
       try {
-        const expiryTime = expiresAt ? new Date(expiresAt).getTime() : Infinity;
+        const expiryTime = new Date(expiresAt).getTime();
+        const hoursUntilExpiry = Math.floor(
+          (expiryTime - now) / (1000 * 60 * 60),
+        );
+        const daysUntilExpiry = Math.floor(hoursUntilExpiry / 24);
 
-        // Still active — nothing to do
-        if (nowTime < expiryTime) continue;
+        const emails = userData.subscriptionEmails || {};
 
-        // Expired but still in grace period
+        // Reset email tracking if expiry date changed (user renewed)
+        const lastExpiry = emails.lastExpiryDate;
+        if (lastExpiry && lastExpiry !== expiresAt) {
+          await doc.ref.update({
+            "subscriptionEmails.lastExpiryDate": expiresAt,
+            "subscriptionEmails.reminder7d": null,
+            "subscriptionEmails.reminder48h": null,
+            "subscriptionEmails.expired": null,
+            "subscriptionEmails.grace": null,
+          });
+          emails.lastExpiryDate = expiresAt;
+          emails.reminder7d = null;
+          emails.reminder48h = null;
+          emails.expired = null;
+          emails.grace = null;
+        } else if (!lastExpiry) {
+          await doc.ref.update({
+            "subscriptionEmails.lastExpiryDate": expiresAt,
+          });
+          emails.lastExpiryDate = expiresAt;
+        }
+
+        // 1. 7-day reminder (between 7 days and 2 days left)
+        if (hoursUntilExpiry <= 168 && hoursUntilExpiry > 48) {
+          const sent = emails.reminder7d;
+          if (!sent || sent.forExpiry !== expiresAt) {
+            if (userEmail) {
+              await sendSubscriptionReminderEmail({
+                to: userEmail,
+                userName,
+                planName: config.name,
+                expiresAt,
+                daysLeft: Math.ceil(hoursUntilExpiry / 24),
+              });
+              await doc.ref.update({
+                "subscriptionEmails.reminder7d": {
+                  sentAt: nowISO,
+                  forExpiry: expiresAt,
+                },
+              });
+              results.emailsSent.reminder7d++;
+            }
+          }
+        }
+
+        // 2. 48-hour reminder (between 48 hours and 1 hour left)
+        if (hoursUntilExpiry <= 48 && hoursUntilExpiry > 0) {
+          const sent = emails.reminder48h;
+          if (!sent || sent.forExpiry !== expiresAt) {
+            if (userEmail) {
+              await sendSubscriptionReminderEmail({
+                to: userEmail,
+                userName,
+                planName: config.name,
+                expiresAt,
+                daysLeft: Math.ceil(hoursUntilExpiry / 24),
+              });
+              await doc.ref.update({
+                "subscriptionEmails.reminder48h": {
+                  sentAt: nowISO,
+                  forExpiry: expiresAt,
+                },
+              });
+              results.emailsSent.reminder48h++;
+            }
+          }
+        }
+
+        // 3. Still active — nothing else to do
+        if (now < expiryTime) continue;
+
+        // 4. Expired — transition to grace
         if (currentStatus === "active") {
           const gracePeriodEnd = calculateGracePeriodEnd(
             expiresAt,
             config.gracePeriodDays,
           );
+
           await doc.ref.update({
             status: "grace",
             gracePeriodEnd,
             updatedAt: FieldValue.serverTimestamp(),
           });
+
+          // Send expired email
+          if (userEmail) {
+            const sent = emails.expired;
+            if (!sent || sent.forExpiry !== expiresAt) {
+              await sendSubscriptionExpiredEmail({
+                to: userEmail,
+                userName,
+                planName: config.name,
+                graceDays: config.gracePeriodDays,
+              });
+              await doc.ref.update({
+                "subscriptionEmails.expired": {
+                  sentAt: nowISO,
+                  forExpiry: expiresAt,
+                },
+              });
+              results.emailsSent.expired++;
+            }
+          }
+
           results.graceActivated++;
         }
-        // Grace period ended — downgrade
+
+        // 5. Grace period — send grace reminder (once per grace period)
         else if (currentStatus === "grace") {
           const graceTime = graceEnd ? new Date(graceEnd).getTime() : 0;
-          if (nowTime >= graceTime) {
+
+          if (userEmail) {
+            const sent = emails.grace;
+            const graceDaysLeft = Math.max(
+              0,
+              Math.ceil((graceTime - now) / (1000 * 60 * 60 * 24)),
+            );
+
+            if ((!sent || sent.forExpiry !== expiresAt) && graceDaysLeft > 0) {
+              await sendGracePeriodEmail({
+                to: userEmail,
+                userName,
+                planName: config.name,
+                graceDaysLeft,
+              });
+              await doc.ref.update({
+                "subscriptionEmails.grace": {
+                  sentAt: nowISO,
+                  forExpiry: expiresAt,
+                },
+              });
+              results.emailsSent.grace++;
+            }
+          }
+
+          // Downgrade if grace ended
+          if (now >= graceTime) {
             await performDowngrade(doc.id, doc.ref, userData);
             results.downgraded++;
           }
@@ -88,8 +218,8 @@ export async function POST(req: NextRequest) {
 
 async function performDowngrade(userId: string, userRef: any, userData: any) {
   const batch = db.batch();
+  const now = FieldValue.serverTimestamp();
 
-  // 1. Downgrade user to Free
   batch.update(userRef, {
     planId: "free",
     planName: "Free",
@@ -100,33 +230,54 @@ async function performDowngrade(userId: string, userRef: any, userData: any) {
     fileStorage: 100 * 1024 * 1024,
     status: "expired",
     gracePeriodEnd: null,
-    downgradedAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
+    downgradedAt: now,
+    updatedAt: now,
   });
 
-  // 2. Deactivate excess websites (keep first 2 by creation date)
+  const billingPlanRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("billing")
+    .doc("plan");
+  batch.set(
+    billingPlanRef,
+    {
+      planId: "free",
+      planName: "Free",
+      price: 0,
+      websites: 2,
+      checkInterval: 30,
+      status: "expired",
+      gracePeriodEnd: null,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+
   const websitesSnap = await db
     .collection("websites")
     .where("userId", "==", userId)
-    .orderBy("createdAt", "asc")
     .get();
 
+  const sortedDocs = websitesSnap.docs.sort((a, b) => {
+    const aTime =
+      a.data().createdAt?.toMillis?.() ||
+      new Date(a.data().createdAt || 0).getTime();
+    const bTime =
+      b.data().createdAt?.toMillis?.() ||
+      new Date(b.data().createdAt || 0).getTime();
+    return aTime - bTime;
+  });
+
   let count = 0;
-  websitesSnap.docs.forEach((siteDoc: any) => {
+  sortedDocs.forEach((doc) => {
     count++;
-    if (count > 2) {
-      batch.update(siteDoc.ref, {
-        monitoringStatus: "inactive",
-        inactiveReason: "Plan downgraded to Free — upgrade to reactivate",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    } else {
-      batch.update(siteDoc.ref, {
-        monitoringStatus: "active",
-        inactiveReason: null,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    }
+    batch.update(doc.ref, {
+      monitoringStatus: count > 2 ? "inactive" : "active",
+      inactiveReason:
+        count > 2 ? "Plan downgraded to Free — upgrade to reactivate" : null,
+      updatedAt: now,
+    });
   });
 
   await batch.commit();

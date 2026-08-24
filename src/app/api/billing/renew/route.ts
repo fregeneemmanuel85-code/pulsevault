@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const timestamp = FieldValue.serverTimestamp();
+    const emailReset = {
+      lastExpiryDate: expiresAt.toISOString(),
+      reminder7d: null,
+      reminder48h: null,
+      expired: null,
+      grace: null,
+    };
 
     const batch = db.batch();
 
@@ -48,6 +55,7 @@ export async function POST(req: NextRequest) {
       gracePeriodEnd: null,
       startedAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
+      subscriptionEmails: emailReset,
       updatedAt: timestamp,
     });
 
@@ -69,12 +77,13 @@ export async function POST(req: NextRequest) {
         gracePeriodEnd: null,
         startedAt: now.toISOString(),
         expiresAt: expiresAt.toISOString(),
+        subscriptionEmails: emailReset,
         updatedAt: timestamp,
       },
       { merge: true },
     );
 
-    // 3. Reactivate ALL websites — no orderBy needed
+    // 3. Reactivate ALL websites
     const websitesSnap = await db
       .collection("websites")
       .where("userId", "==", userId)
