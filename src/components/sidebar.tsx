@@ -24,6 +24,7 @@ import {
   GlobeLock,
   Search,
   BarChart3,
+  HardDrive,
 } from "lucide-react";
 import {
   subscribeToWebsites,
@@ -47,6 +48,12 @@ const navItems = [
     plan: "free",
   },
   { label: "Alerts", href: "/dashboard/alerts", icon: Bell, plan: "free" },
+  {
+    label: "File Vault",
+    href: "/dashboard/files",
+    icon: HardDrive,
+    plan: "free",
+  },
   {
     label: "Incidents",
     href: "/dashboard/incidents",
