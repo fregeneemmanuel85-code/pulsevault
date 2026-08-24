@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       { merge: true },
     );
 
-    // 3. Reactivate ALL websites
+    // 3. Reactivate ALL websites — no orderBy needed
     const websitesSnap = await db
       .collection("websites")
       .where("userId", "==", userId)

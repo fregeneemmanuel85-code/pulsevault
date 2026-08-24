@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const batch = db.batch();
     const now = FieldValue.serverTimestamp();
 
-    // 1. Update ROOT user doc (used by file manager, quota, etc.)
+    // 1. Update ROOT user doc
     const userRef = db.collection("users").doc(userId);
     batch.update(userRef, {
       planId: "free",
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       updatedAt: now,
     });
 
-    // 2. Update billing/plan subcollection (used by billing page subscription)
+    // 2. Update billing/plan subcollection
     const billingPlanRef = db
       .collection("users")
       .doc(userId)
@@ -65,15 +65,25 @@ export async function POST(req: NextRequest) {
       { merge: true },
     );
 
-    // 3. Deactivate excess websites
+    // 3. Deactivate excess websites — NO orderBy (avoids index requirement)
     const websitesSnap = await db
       .collection("websites")
       .where("userId", "==", userId)
-      .orderBy("createdAt", "asc")
       .get();
 
+    // Sort by createdAt in memory
+    const sortedDocs = websitesSnap.docs.sort((a, b) => {
+      const aTime =
+        a.data().createdAt?.toMillis?.() ||
+        new Date(a.data().createdAt || 0).getTime();
+      const bTime =
+        b.data().createdAt?.toMillis?.() ||
+        new Date(b.data().createdAt || 0).getTime();
+      return aTime - bTime;
+    });
+
     let count = 0;
-    websitesSnap.docs.forEach((doc: any) => {
+    sortedDocs.forEach((doc) => {
       count++;
       batch.update(doc.ref, {
         monitoringStatus: count > 2 ? "inactive" : "active",

@@ -26,18 +26,38 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const userRef = db.collection("users").doc(userId);
-    const snap = await userRef.get();
-    const data = snap.exists ? snap.data() : {};
+    // 1. Try billing/plan subcollection first (where your billing page writes)
+    const billingSnap = await db
+      .collection("users")
+      .doc(userId)
+      .collection("billing")
+      .doc("plan")
+      .get();
+    let planId = "free";
+    let planName = "Free";
 
-    const planId = (data?.planId as string) || "free";
+    if (billingSnap.exists) {
+      const billingData = billingSnap.data()!;
+      planId = billingData.planId || "free";
+      planName = billingData.planName || "Free";
+    } else {
+      // 2. Fallback to root user doc
+      const userSnap = await db.collection("users").doc(userId).get();
+      const data = userSnap.exists ? userSnap.data() : {};
+      planId = (data?.planId as string) || (data?.plan as string) || "free";
+      planName = (data?.planName as string) || "Free";
+    }
+
     const config = getPlanConfig(planId);
-    const used = Number(data?.storageUsed) || 0;
+    const used =
+      Number(
+        (await db.collection("users").doc(userId).get()).data()?.storageUsed,
+      ) || 0;
 
     return NextResponse.json({
       used,
       limit: config.fileStorage,
-      plan: config.name,
+      plan: planName,
       remaining: Math.max(0, config.fileStorage - used),
     });
   } catch (err: any) {
