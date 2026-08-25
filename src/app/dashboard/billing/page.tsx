@@ -910,14 +910,14 @@ export default function BillingPage() {
             {
               id: "paystack" as const,
               name: "Paystack",
-              desc: "₦ Naira — Card, bank transfer, USSD",
-              flag: "🇳🇬",
+              desc: "₦ Naira — Card (Africa)",
+              flag: "🌍",
             },
             {
               id: "flutterwave" as const,
               name: "Flutterwave",
               desc: "$ USD — Card (International)",
-              flag: "🌍",
+              flag: "🌐",
             },
           ].map((method) => (
             <button
