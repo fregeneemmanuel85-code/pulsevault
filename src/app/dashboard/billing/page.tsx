@@ -3,14 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import {
-  Check,
-  CreditCard,
-  Loader2,
-  Sparkles,
-  HardDrive,
-  ChevronDown,
-} from "lucide-react";
+import { Check, Loader2, Sparkles, HardDrive } from "lucide-react";
 import {
   subscribeToUserPlan,
   subscribeToInvoices,
@@ -135,47 +128,12 @@ const plans: PlanOption[] = [
   },
 ];
 
-// Approximate exchange rates from NGN
-const EXCHANGE_RATES: Record<string, number> = {
-  NGN: 1,
-  USD: 0.00065,
-  EUR: 0.0006,
-  GBP: 0.00051,
-  KES: 0.095,
-  GHS: 0.0098,
-  ZAR: 0.012,
-};
+// USD conversion from NGN (approximate)
+const USD_RATE = 0.00065;
 
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  NGN: "₦",
-  USD: "$",
-  EUR: "€",
-  GBP: "£",
-  KES: "KSh",
-  GHS: "₵",
-  ZAR: "R",
-};
-
-const FLUTTERWAVE_CURRENCIES = [
-  "USD",
-  "EUR",
-  "GBP",
-  "KES",
-  "GHS",
-  "ZAR",
-  "NGN",
-];
-
-function convertPrice(ngnPrice: number, currency: string): number {
-  if (currency === "NGN") return ngnPrice;
-  return Math.round(ngnPrice * (EXCHANGE_RATES[currency] || 1));
-}
-
-function formatPrice(ngnPrice: number, currency: string): string {
-  const symbol = CURRENCY_SYMBOLS[currency] || currency;
-  const converted = convertPrice(ngnPrice, currency);
-  if (converted === 0) return "Free";
-  return `${symbol}${converted.toLocaleString()} ${currency}`;
+function toUsd(ngnPrice: number): number {
+  if (ngnPrice === 0) return 0;
+  return Math.round(ngnPrice * USD_RATE);
 }
 
 export default function BillingPage() {
@@ -193,8 +151,6 @@ export default function BillingPage() {
   const [paymentMethod, setPaymentMethod] = useState<
     "paystack" | "flutterwave"
   >("paystack");
-  const [flutterwaveCurrency, setFlutterwaveCurrency] = useState("USD");
-  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
   const pendingPlanRef = useRef<PlanOption | null>(null);
   const scriptLoadedRef = useRef({ paystack: false, flutterwave: false });
@@ -350,7 +306,7 @@ export default function BillingPage() {
         if (renewData?.success) {
           return addInvoice({
             date: new Date().toLocaleDateString(),
-            amount: "NGN " + plan.price.toLocaleString(),
+            amount: "₦" + plan.price.toLocaleString(),
             status: "Paid",
             plan: plan.name,
             txRef: response.reference,
@@ -404,15 +360,15 @@ export default function BillingPage() {
 
     const txRef =
       "PV-FW-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
-    const amount = convertPrice(plan.price, flutterwaveCurrency);
+    const usdAmount = toUsd(plan.price);
 
     try {
       (window as any).FlutterwaveCheckout({
         public_key: flutterwaveKey,
         tx_ref: txRef,
-        amount: amount,
-        currency: flutterwaveCurrency,
-        payment_options: "card,ussd,banktransfer",
+        amount: usdAmount,
+        currency: "USD",
+        payment_options: "card",
         customer: {
           email: userEmail,
           name: userName,
@@ -442,7 +398,7 @@ export default function BillingPage() {
                 if (data.success) {
                   return addInvoice({
                     date: new Date().toLocaleDateString(),
-                    amount: `${CURRENCY_SYMBOLS[flutterwaveCurrency]}${amount.toLocaleString()} ${flutterwaveCurrency}`,
+                    amount: "$" + usdAmount + " USD",
                     status: "Paid",
                     plan: plan.name,
                     txRef,
@@ -954,13 +910,13 @@ export default function BillingPage() {
             {
               id: "paystack" as const,
               name: "Paystack",
-              desc: "Card, bank transfer, USSD",
+              desc: "₦ Naira — Card, bank transfer, USSD",
               flag: "🇳🇬",
             },
             {
               id: "flutterwave" as const,
               name: "Flutterwave",
-              desc: "Card, bank, mobile money",
+              desc: "$ USD — Card (International)",
               flag: "🌍",
             },
           ].map((method) => (
@@ -1022,102 +978,6 @@ export default function BillingPage() {
             </button>
           ))}
         </div>
-
-        {/* Flutterwave Currency Selector */}
-        {paymentMethod === "flutterwave" && (
-          <div style={{ marginTop: "1rem" }}>
-            <p
-              style={{
-                fontSize: "0.8125rem",
-                fontWeight: "600",
-                color: "var(--text-primary)",
-                marginBottom: "0.5rem",
-              }}
-            >
-              Select Currency
-            </p>
-            <div style={{ position: "relative", maxWidth: "200px" }}>
-              <button
-                onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "0.625rem 0.875rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--bg-input)",
-                  color: "var(--text-primary)",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                }}
-              >
-                <span>
-                  {CURRENCY_SYMBOLS[flutterwaveCurrency]} {flutterwaveCurrency}
-                </span>
-                <ChevronDown size={16} style={{ color: "var(--text-muted)" }} />
-              </button>
-              {showCurrencyDropdown && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 0.25rem)",
-                    left: 0,
-                    right: 0,
-                    backgroundColor: "var(--bg-card)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "0.5rem",
-                    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-                    zIndex: 10,
-                    overflow: "hidden",
-                  }}
-                >
-                  {FLUTTERWAVE_CURRENCIES.map((curr) => (
-                    <button
-                      key={curr}
-                      onClick={() => {
-                        setFlutterwaveCurrency(curr);
-                        setShowCurrencyDropdown(false);
-                      }}
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem 0.875rem",
-                        textAlign: "left",
-                        border: "none",
-                        borderBottom: "1px solid var(--border-light)",
-                        backgroundColor:
-                          flutterwaveCurrency === curr
-                            ? "var(--bg-badge-blue)"
-                            : "var(--bg-card)",
-                        color:
-                          flutterwaveCurrency === curr
-                            ? "var(--text-blue)"
-                            : "var(--text-primary)",
-                        fontSize: "0.875rem",
-                        fontWeight:
-                          flutterwaveCurrency === curr ? "600" : "400",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {CURRENCY_SYMBOLS[curr]} {curr}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--text-muted)",
-                marginTop: "0.375rem",
-              }}
-            >
-              Prices shown below will update to {flutterwaveCurrency}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Plans Grid */}
@@ -1199,8 +1059,8 @@ export default function BillingPage() {
                     color: "var(--text-primary)",
                   }}
                 >
-                  {paymentMethod === "flutterwave"
-                    ? formatPrice(plan.price, flutterwaveCurrency)
+                  {paymentMethod === "flutterwave" && plan.price > 0
+                    ? `$${toUsd(plan.price)} USD`
                     : `₦${plan.price.toLocaleString()}`}
                 </span>
                 {plan.interval && (
