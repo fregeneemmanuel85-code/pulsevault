@@ -4,7 +4,9 @@ import { calculatePerformanceScore } from "@/lib/deep-scan/performance-scorer";
 import {
   detectTechStack,
   type TechStackInput,
+  type TechDetection,
 } from "@/lib/deep-scan/tech-detector";
+import { runMultiPageScan } from "@/lib/deep-scan/multi-page-scanner";
 
 /* ─── Types (preserves existing API contract) ─── */
 interface SecurityCheck {
@@ -19,6 +21,23 @@ interface SeoCheck {
   details?: string;
 }
 
+interface ScanFormItem {
+  selector: string;
+  source: string;
+  action: string;
+  method: string;
+  inputs: number;
+  buttons: number;
+  note?: string;
+  pageUrl?: string;
+}
+
+interface ScanTechItem {
+  name: string;
+  confidence?: string;
+  evidence?: string[];
+}
+
 interface ScanResult {
   url: string;
   domain: string;
@@ -31,33 +50,23 @@ interface ScanResult {
   };
   forms: {
     count: number;
-    items: Array<{
-      selector: string;
-      source: string;
-      action: string;
-      method: string;
-      inputs: number;
-      buttons: number;
-      note?: string;
-    }>;
+    items: ScanFormItem[];
   };
-  techStack: Array<{
-    name: string;
-    confidence?: string;
-    evidence?: string[];
-  }>;
+  techStack: ScanTechItem[];
   plugins: Array<{ name: string; confidence: string }>;
   diagnostics: {
     pageSize: string;
     responseTime: string;
     loadTime: string;
     consoleErrors: number;
+    pagesScanned?: number;
+    totalDiscovered?: number;
   };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { url, deep = false } = await req.json();
+    const { url, deep = false, multiPage = false } = await req.json();
     if (!url) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
@@ -65,13 +74,81 @@ export async function POST(req: NextRequest) {
     const normalizedUrl = normalizeUrl(url);
     const domain = new URL(normalizedUrl).hostname;
 
-    /* ── Phase 1: Basic fetch scan (always runs) ── */
-    const basic = await runBasicScan(normalizedUrl);
+    /* ── Multi-page scan (NEW) ── */
+    if (multiPage && deep) {
+      const multiResult = await runMultiPageScan(normalizedUrl, {
+        deep: true,
+        crawl: { maxPages: 8, maxDepth: 2 },
+      });
 
-    /* ── Phase 2: Deep browser scan ── */
+      // Run basic security/seo on homepage only (fast)
+      const basic = await runBasicScan(normalizedUrl);
+
+      const result: ScanResult = {
+        url: normalizedUrl,
+        domain,
+        timestamp: new Date().toISOString(),
+        security: basic.security,
+        seo: basic.seo,
+        performance: {
+          score: multiResult.performance.score,
+          metrics: multiResult.performance.metrics,
+        },
+        forms: {
+          count: multiResult.forms.count,
+          items: multiResult.forms.items.map(
+            (f: {
+              selector: string;
+              source: string;
+              action: string;
+              method: string;
+              inputs: number;
+              buttons: number;
+              note?: string;
+            }) => ({
+              selector: f.selector,
+              source: f.source,
+              action: f.action,
+              method: f.method,
+              inputs: f.inputs,
+              buttons: f.buttons,
+              note: f.note,
+              pageUrl: multiResult.forms.byPage.find(
+                (p: {
+                  url: string;
+                  forms: Array<{ selector: string; action: string }>;
+                }) =>
+                  p.forms.some(
+                    (pf: { selector: string; action: string }) =>
+                      pf.selector === f.selector && pf.action === f.action,
+                  ),
+              )?.url,
+            }),
+          ),
+        },
+        techStack: multiResult.techStack.map((t: TechDetection) => ({
+          name: t.name,
+          confidence: t.confidence,
+          evidence: t.evidence,
+        })),
+        plugins: detectWordPressPlugins(basic.html),
+        diagnostics: {
+          pageSize: multiResult.diagnostics.avgPageSize,
+          responseTime: multiResult.diagnostics.avgResponseTime,
+          loadTime: multiResult.diagnostics.avgLoadTime,
+          consoleErrors: multiResult.diagnostics.totalConsoleErrors,
+          pagesScanned: multiResult.pagesScanned,
+          totalDiscovered: multiResult.totalDiscovered,
+        },
+      };
+
+      return NextResponse.json(result);
+    }
+
+    /* ── Single-page scan (existing logic) ── */
+    const basic = await runBasicScan(normalizedUrl);
     const browserData = deep ? await runBrowserScan(normalizedUrl) : null;
 
-    /* ── Phase 3: Evidence-based tech stack ── */
     const techInput: TechStackInput = {
       url: normalizedUrl,
       initialHtml: basic.html,
@@ -87,7 +164,6 @@ export async function POST(req: NextRequest) {
     };
     const techStack = detectTechStack(techInput);
 
-    /* ── Phase 4: Performance scoring ── */
     let performanceReport = basic.performance;
     if (browserData?.performance) {
       performanceReport = calculatePerformanceScore({
@@ -102,12 +178,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    /* ── Phase 5: Merge forms (basic + browser) ── */
-    const allForms = [...basic.forms];
+    const allForms: ScanFormItem[] = [...basic.forms];
     if (browserData?.forms) {
       for (const bForm of browserData.forms) {
         const dup = allForms.some(
-          (f) =>
+          (f: ScanFormItem) =>
             f.action === bForm.action &&
             f.method === bForm.method &&
             f.inputs === bForm.inputs &&
@@ -127,10 +202,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    /* ── Phase 6: WordPress plugins (preserved) ── */
-    const plugins = detectWordPressPlugins(basic.html);
-
-    /* ── Assemble response ── */
     const result: ScanResult = {
       url: normalizedUrl,
       domain,
@@ -145,12 +216,12 @@ export async function POST(req: NextRequest) {
         count: allForms.length,
         items: allForms,
       },
-      techStack: techStack.map((t) => ({
+      techStack: techStack.map((t: TechDetection) => ({
         name: t.name,
         confidence: t.confidence,
         evidence: t.evidence,
       })),
-      plugins,
+      plugins: detectWordPressPlugins(basic.html),
       diagnostics: {
         pageSize: performanceReport.metrics.pageSize.display,
         responseTime: performanceReport.metrics.responseTime.display,
@@ -187,7 +258,7 @@ async function runBasicScan(url: string) {
 
   const html = await response.text();
   const headers: Record<string, string> = {};
-  response.headers.forEach((v, k) => (headers[k] = v));
+  response.headers.forEach((v: string, k: string) => (headers[k] = v));
 
   /* Security */
   const secChecks: SecurityCheck[] = [];
@@ -210,7 +281,8 @@ async function runBasicScan(url: string) {
     else secChecks.push({ name, status: "warning", details: "Missing" });
   }
   const secScore = Math.round(
-    (secChecks.filter((c) => c.status === "pass").length / secChecks.length) *
+    (secChecks.filter((c: SecurityCheck) => c.status === "pass").length /
+      secChecks.length) *
       100,
   );
 
@@ -255,7 +327,8 @@ async function runBasicScan(url: string) {
     details: viewport ? "Configured" : "Missing",
   });
   const seoScore = Math.round(
-    (seoChecks.filter((c) => c.status === "pass").length / seoChecks.length) *
+    (seoChecks.filter((c: SeoCheck) => c.status === "pass").length /
+      seoChecks.length) *
       100,
   );
 
@@ -270,7 +343,7 @@ async function runBasicScan(url: string) {
     note?: string;
   }> = [];
   const formRx = /<form[^>]*>/gi;
-  let m;
+  let m: RegExpExecArray | null;
   let idx = 0;
   while ((m = formRx.exec(html)) !== null) {
     const tag = m[0];
@@ -316,7 +389,6 @@ async function runBasicScan(url: string) {
     responseTime: 0,
     loadTime: 0,
   });
-  // Override score to 0 when metrics are unavailable so it doesn't look real
   fallbackPerf.score = 0;
   fallbackPerf.metrics.fcp.display = "N/A";
   fallbackPerf.metrics.si.display = "N/A";
@@ -348,7 +420,7 @@ function detectWordPressPlugins(
     { name: "WP Rocket", patterns: [/wp-rocket|rocket-lazyload/i] },
   ];
   for (const p of sigs) {
-    if (p.patterns.some((rx) => rx.test(html))) {
+    if (p.patterns.some((rx: RegExp) => rx.test(html))) {
       plugins.push({ name: p.name, confidence: "HIGH" });
     }
   }
