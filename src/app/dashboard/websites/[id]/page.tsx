@@ -168,6 +168,7 @@ export default function WebsiteDetailPage() {
     showToast("Starting deep scan...", "info");
 
     try {
+      // ← ADD THIS BLOCK HERE
       const auth = getAuth();
       if (!auth.currentUser) {
         console.log("[Scan] Skipped — user logged out");
@@ -175,186 +176,113 @@ export default function WebsiteDetailPage() {
         return;
       }
 
-      /* ─── UPDATED: Call /api/scan with deep + multiPage flags ─── */
-      const res = await fetch("/api/scan", {
+      const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: website.url,
-          deep: true,
-          multiPage: true,
-        }),
+        body: JSON.stringify({ url: website.url, websiteId: website.id }),
       });
       const result = await res.json();
 
-      if (!res.ok) {
-        throw new Error(result.message || result.error || "Scan failed");
-      }
-
-      /* ─── UPDATED: Map new API response shape ─── */
       const storedResult = {
         timestamp: result.timestamp,
-        links: [],
+        links: result.links?.list || [],
         plugins:
-          result.plugins?.map((p: any) => ({
-            name: p.name,
-            status: "ok",
+          result.plugins?.detected?.map((name: string) => ({
+            name,
+            status: result.plugins?.broken?.includes(name) ? "broken" : "ok",
           })) || [],
-        forms:
-          result.forms?.items?.map((f: any) => ({
-            hasAction: !!f.action,
-            hasMethod: !!f.method,
-            action: f.action,
-            method: f.method,
-            selector: f.selector,
-            source: f.source,
-            inputs: f.inputs,
-            buttons: f.buttons,
-            pageUrl: f.pageUrl,
-            note: f.note,
-          })) || [],
-        consoleErrors: [],
-        apiChecks: [],
-        loadTime: parseFloat(result.diagnostics?.loadTime) || 0,
-        pageSize: parseFloat(result.diagnostics?.pageSize) || 0,
+        forms: result.forms?.list || [],
+        consoleErrors: result.consoleErrors || [],
+        apiChecks: result.apiChecks || [],
+        loadTime: result.performance?.loadTime || 0,
+        pageSize: result.performance?.pageSize || 0,
         performanceScore: result.performance?.score || 0,
         resourceErrors: [],
-        techStack: {
-          detected:
-            result.techStack?.map((t: any) => ({
-              name: t.name,
-              confidence: t.confidence,
-              evidence: t.evidence,
-            })) || [],
-        },
-        runtimeErrors: [],
-        spaCrashes: false,
-        headlessAvailable: true,
-        seo: {
-          score: result.seo?.score || 100,
-          metrics: {},
-          issues:
-            result.seo?.checks
-              ?.filter((c: any) => c.status !== "pass")
-              ?.map((c: any) => ({
-                message: c.name,
-                recommendation: c.details,
-                type: c.status === "fail" ? "critical" : "warning",
-              })) || [],
-        },
+        techStack: result.techStack || { detected: [] },
+        runtimeErrors: result.runtimeErrors || [],
+        spaCrashes: result.spaCrashes || false,
+        headlessAvailable: result.headlessAvailable || false,
+        seo: result.seo || { score: 100, metrics: {}, issues: [] },
       };
       setScanResult(storedResult);
       justScanned.current = true;
 
-      /* ─── UPDATED: Map to website state ─── */
       setWebsite((prev) =>
         prev
           ? {
               ...prev,
-              status: result.status || prev.status,
-              health: result.healthScore || prev.health,
-              httpStatus: result.httpStatus || prev.httpStatus,
-              responseTime:
-                result.diagnostics?.responseTime || prev.responseTime,
-              ssl: prev.ssl,
-              sslExpiry: prev.sslExpiry,
-              sslDaysLeft: prev.sslDaysLeft,
-              dnsStatus: prev.dnsStatus,
-              brokenLinks: prev.brokenLinks,
-              protectedLinks: prev.protectedLinks,
-              totalLinks: prev.totalLinks,
-              brokenPlugins: 0,
-              totalPlugins: result.plugins?.length || 0,
-              formsWorking: (result.forms?.items?.length || 0) > 0,
-              totalForms: result.forms?.items?.length || 0,
-              jsErrors: result.diagnostics?.consoleErrors || 0,
-              performanceScore:
-                result.performance?.score || prev.performanceScore,
-              loadTime: result.diagnostics?.loadTime || prev.loadTime,
-              pageSize: result.diagnostics?.pageSize || prev.pageSize,
-              mixedContent: prev.mixedContent,
-              securityHeaders:
-                result.security?.checks?.reduce((acc: any, c: any) => {
-                  acc[c.name.toLowerCase().replace(/[^a-z]/g, "")] =
-                    c.status === "pass";
-                  return acc;
-                }, {}) || prev.securityHeaders,
-              redirectChain: prev.redirectChain,
-              spaCrashes: false,
-              runtimeErrors: [],
-              headlessAvailable: true,
-              seoScore: result.seo?.score || prev.seoScore,
+              status: result.status,
+              health: result.healthScore,
+              httpStatus: result.httpStatus,
+              responseTime: result.responseTime + "ms",
+              ssl: result.ssl.valid
+                ? result.ssl.daysLeft < 30
+                  ? "expiring"
+                  : "valid"
+                : "expired",
+              sslExpiry: result.ssl.expiry || null,
+              sslDaysLeft: result.ssl.daysLeft ?? null,
+              dnsStatus: result.dns.resolved ? "ok" : "failed",
+              brokenLinks: result.links.broken,
+              protectedLinks: result.links.protected || 0,
+              totalLinks: result.links.total,
+              brokenPlugins: result.plugins.broken.length,
+              totalPlugins: result.plugins.detected.length,
+              formsWorking: result.forms.working,
+              totalForms: result.forms.total,
+              jsErrors: result.jsErrors,
+              performanceScore: result.performance.score,
+              loadTime: result.performance.loadTime,
+              pageSize: result.performance.pageSize,
+              mixedContent: result.mixedContent,
+              securityHeaders: result.securityHeaders,
+              redirectChain: result.redirectChain,
+              spaCrashes: result.spaCrashes,
+              runtimeErrors: result.runtimeErrors,
+              headlessAvailable: result.headlessAvailable,
+              seoScore: result.seo?.score,
               seoLastScanned: new Date().toISOString(),
-              seoIssues:
-                result.seo?.checks
-                  ?.filter((c: any) => c.status !== "pass")
-                  ?.map((c: any) => ({
-                    message: c.name,
-                    recommendation: c.details,
-                    type: c.status === "fail" ? "critical" : "warning",
-                  })) || prev.seoIssues,
-              seoMetrics: {
-                titleLength: 0,
-                metaDescriptionLength: 0,
-                h1Count: 0,
-                h2Count: 0,
-                imageWithoutAlt: 0,
-                totalImages: 0,
-                internalLinks: 0,
-                hasCanonical: false,
-                hasOpenGraph: false,
-                hasTwitterCard: false,
-                hasSchema: false,
-                hasViewport: false,
-                hasRobotsMeta: false,
-              },
+              seoIssues: result.seo?.issues,
+              seoMetrics: result.seo?.metrics,
               lastChecked: new Date().toLocaleTimeString(),
             }
           : null,
       );
 
-      /* ─── UPDATED: Firestore update payload ─── */
       const updatePayload = {
-        status: result.status || website.status,
-        health: result.healthScore || website.health,
-        httpStatus: result.httpStatus || website.httpStatus,
-        responseTime: result.diagnostics?.responseTime || website.responseTime,
-        ssl: website.ssl,
-        sslExpiry: website.sslExpiry,
-        sslDaysLeft: website.sslDaysLeft,
-        dnsStatus: website.dnsStatus,
-        brokenLinks: website.brokenLinks,
-        protectedLinks: website.protectedLinks,
-        totalLinks: website.totalLinks,
-        brokenPlugins: 0,
-        totalPlugins: result.plugins?.length || 0,
-        formsWorking: (result.forms?.items?.length || 0) > 0,
-        totalForms: result.forms?.items?.length || 0,
-        jsErrors: result.diagnostics?.consoleErrors || 0,
-        performanceScore: result.performance?.score || website.performanceScore,
-        loadTime: result.diagnostics?.loadTime || website.loadTime,
-        pageSize: result.diagnostics?.pageSize || website.pageSize,
-        mixedContent: website.mixedContent,
-        securityHeaders: result.security?.checks?.reduce((acc: any, c: any) => {
-          acc[c.name.toLowerCase().replace(/[^a-z]/g, "")] =
-            c.status === "pass";
-          return acc;
-        }, {}),
-        redirectChain: website.redirectChain,
-        spaCrashes: false,
-        runtimeErrors: [],
-        headlessAvailable: true,
-        seoScore: result.seo?.score || website.seoScore,
+        status: result.status,
+        health: result.healthScore,
+        httpStatus: result.httpStatus,
+        responseTime: result.responseTime + "ms",
+        ssl: result.ssl.valid
+          ? result.ssl.daysLeft < 30
+            ? "expiring"
+            : "valid"
+          : "expired",
+        sslExpiry: result.ssl.expiry || null,
+        sslDaysLeft: result.ssl.daysLeft ?? null,
+        dnsStatus: result.dns.resolved ? "ok" : "failed",
+        brokenLinks: result.links.broken,
+        protectedLinks: result.links.protected || 0,
+        totalLinks: result.links.total,
+        brokenPlugins: result.plugins.broken.length,
+        totalPlugins: result.plugins.detected.length,
+        formsWorking: result.forms.working,
+        totalForms: result.forms.total,
+        jsErrors: result.jsErrors,
+        performanceScore: result.performance.score,
+        loadTime: result.performance.loadTime,
+        pageSize: result.performance.pageSize,
+        mixedContent: result.mixedContent,
+        securityHeaders: result.securityHeaders,
+        redirectChain: result.redirectChain,
+        spaCrashes: result.spaCrashes,
+        runtimeErrors: result.runtimeErrors,
+        headlessAvailable: result.headlessAvailable,
+        seoScore: result.seo?.score,
         seoLastScanned: new Date().toISOString(),
-        seoIssues:
-          result.seo?.checks
-            ?.filter((c: any) => c.status !== "pass")
-            ?.map((c: any) => ({
-              message: c.name,
-              recommendation: c.details,
-              type: c.status === "fail" ? "critical" : "warning",
-            })) || [],
-        seoMetrics: {},
+        seoIssues: result.seo?.issues,
+        seoMetrics: result.seo?.metrics,
         scanResults: storedResult,
         lastChecked: new Date().toISOString(),
       };
@@ -383,6 +311,7 @@ export default function WebsiteDetailPage() {
     showToast("Detecting tech stack...", "info");
 
     try {
+      // ← ADD THIS BLOCK
       const auth = getAuth();
       if (!auth.currentUser) {
         console.log("[Scan] Skipped — user logged out");
@@ -390,60 +319,31 @@ export default function WebsiteDetailPage() {
         return;
       }
 
-      /* ─── UPDATED: Call /api/scan with deep flag ─── */
-      const res = await fetch("/api/scan", {
+      const res = await fetch("/api/scan-deep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: website.url,
-          deep: true,
+          websiteId: website.id,
+          techOnly: true,
         }),
       });
       const result = await res.json();
 
-      if (!res.ok) {
-        throw new Error(result.message || result.error || "Tech scan failed");
-      }
+      const detected = result.techStack?.detected || [];
 
-      const detected = result.techStack || [];
-
-      /* ─── UPDATED: Map new tech stack shape ─── */
       setScanResult((prev) =>
         prev
           ? {
               ...prev,
-              techStack: {
-                detected: detected.map((t: any) => ({
-                  name: t.name,
-                  confidence: t.confidence,
-                  evidence: t.evidence,
-                })),
-              },
-              spaCrashes: false,
-              runtimeErrors: [],
+              techStack: result.techStack || { detected: [] },
+              spaCrashes: result.spaCrashes || false,
+              runtimeErrors: result.runtimeErrors || [],
             }
           : ({
-              timestamp: new Date().toISOString(),
-              links: [],
-              plugins: [],
-              forms: [],
-              consoleErrors: [],
-              apiChecks: [],
-              loadTime: 0,
-              pageSize: 0,
-              performanceScore: 0,
-              resourceErrors: [],
-              techStack: {
-                detected: detected.map((t: any) => ({
-                  name: t.name,
-                  confidence: t.confidence,
-                  evidence: t.evidence,
-                })),
-              },
-              spaCrashes: false,
-              runtimeErrors: [],
-              headlessAvailable: true,
-              seo: { score: 100, metrics: {}, issues: [] },
+              techStack: result.techStack || { detected: [] },
+              spaCrashes: result.spaCrashes || false,
+              runtimeErrors: result.runtimeErrors || [],
             } as ScanResult),
       );
 
@@ -451,50 +351,26 @@ export default function WebsiteDetailPage() {
         prev
           ? ({
               ...prev,
-              techStack: {
-                detected: detected.map((t: any) => ({
-                  name: t.name,
-                  confidence: t.confidence,
-                  evidence: t.evidence,
-                })),
-              },
-              spaCrashes: false,
-              runtimeErrors: [],
+              techStack: result.techStack || { detected: [] },
+              spaCrashes: result.spaCrashes || false,
+              runtimeErrors: result.runtimeErrors || [],
               scanResults: {
                 ...(prev.scanResults || {}),
-                techStack: {
-                  detected: detected.map((t: any) => ({
-                    name: t.name,
-                    confidence: t.confidence,
-                    evidence: t.evidence,
-                  })),
-                },
-                spaCrashes: false,
-                runtimeErrors: [],
+                techStack: result.techStack || { detected: [] },
+                spaCrashes: result.spaCrashes || false,
+                runtimeErrors: result.runtimeErrors || [],
               },
             } as Website)
           : null,
       );
 
       await updateWebsite(id, {
-        techStack: {
-          detected: detected.map((t: any) => ({
-            name: t.name,
-            confidence: t.confidence,
-            evidence: t.evidence,
-          })),
-        },
-        spaCrashes: false,
-        runtimeErrors: [],
-        "scanResults.techStack": {
-          detected: detected.map((t: any) => ({
-            name: t.name,
-            confidence: t.confidence,
-            evidence: t.evidence,
-          })),
-        },
-        "scanResults.spaCrashes": false,
-        "scanResults.runtimeErrors": [],
+        techStack: result.techStack || { detected: [] },
+        spaCrashes: result.spaCrashes || false,
+        runtimeErrors: result.runtimeErrors || [],
+        "scanResults.techStack": result.techStack || { detected: [] },
+        "scanResults.spaCrashes": result.spaCrashes || false,
+        "scanResults.runtimeErrors": result.runtimeErrors || [],
         updatedAt: new Date().toISOString(),
       } as any);
 
@@ -1382,7 +1258,7 @@ export default function WebsiteDetailPage() {
                 gap: "0.25rem",
               }}
             >
-              {scanResult.forms.map((f: any, i: number) => (
+              {scanResult.forms.map((f, i) => (
                 <div
                   key={i}
                   style={{
@@ -1394,11 +1270,6 @@ export default function WebsiteDetailPage() {
                   {f.hasAction && f.hasMethod ? "✓" : "✗"} Form {i + 1}:{" "}
                   {f.hasAction ? "action" : "no action"},{" "}
                   {f.hasMethod ? "method" : "no method"}
-                  {f.pageUrl && (
-                    <span style={{ color: "#64748b", marginLeft: "0.5rem" }}>
-                      ({f.pageUrl})
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
@@ -1785,11 +1656,9 @@ export default function WebsiteDetailPage() {
               {techData?.detected?.map((tech: any, i: number) => {
                 const techName =
                   typeof tech === "string" ? tech : tech?.name || "Unknown";
-                const confidence = tech?.confidence;
                 return (
                   <span
                     key={i}
-                    title={confidence ? `Confidence: ${confidence}` : undefined}
                     style={{
                       fontSize: "clamp(0.6875rem, 1.5vw, 0.75rem)",
                       fontWeight: "500",
@@ -1799,21 +1668,9 @@ export default function WebsiteDetailPage() {
                       color: "#7c3aed",
                       border: "1px solid #ddd6fe",
                       whiteSpace: "nowrap",
-                      cursor: confidence ? "help" : "default",
                     }}
                   >
                     {techName}
-                    {confidence && (
-                      <span
-                        style={{
-                          marginLeft: "0.25rem",
-                          opacity: 0.7,
-                          fontSize: "0.625rem",
-                        }}
-                      >
-                        ({confidence})
-                      </span>
-                    )}
                   </span>
                 );
               })}
@@ -2304,7 +2161,6 @@ export default function WebsiteDetailPage() {
     </div>
   );
 }
-
 function WebsiteThumbnail({ url, name }: { url: string; name: string }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
