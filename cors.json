@@ -1,8 +1,24 @@
-[
-  {
-    "origin": ["http://localhost:3000", "https://pulsevault.website"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-    "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization", "x-goog-resumable"]
-  }
-]
+﻿{
+  "rules": [
+    {
+      "allowed": {
+        "origins": [
+          "https://pulsevault.website",
+          "http://localhost:3000"
+        ],
+        "methods": [
+          "PUT",
+          "GET",
+          "HEAD"
+        ],
+        "headers": [
+          "*"
+        ]
+      },
+      "exposeHeaders": [
+        "ETag"
+      ],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}
