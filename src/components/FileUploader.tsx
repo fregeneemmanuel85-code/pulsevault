@@ -112,7 +112,11 @@ export default function FileUploader({
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve();
           } else {
-            reject(new Error(`Storage upload failed: ${xhr.statusText}`));
+            reject(
+              new Error(
+                `Storage upload failed: ${xhr.status} ${xhr.statusText}`,
+              ),
+            );
           }
         });
 
@@ -121,7 +125,9 @@ export default function FileUploader({
         );
 
         xhr.open("PUT", sigData.signedUrl, true);
-        xhr.setRequestHeader("Content-Type", file.type || "application/zip");
+        // Do NOT set Content-Type here — the presigned URL only signs
+        // content-length and host. Adding Content-Type triggers a CORS
+        // preflight or causes an AWS signature mismatch.
         xhr.send(file);
       });
 

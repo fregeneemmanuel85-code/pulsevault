@@ -13,6 +13,9 @@ const s3 = new S3Client({
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   },
+  // Disable automatic checksums — R2 handles this better without them
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 const BUCKET = process.env.R2_BUCKET_NAME;
@@ -47,7 +50,6 @@ function formatBytes(bytes: number): string {
 }
 
 function detectPlan(userData: any): string {
-  // Collect all possible fields where the plan tier might live
   const candidates = [
     userData?.planName,
     userData?.planId,
@@ -61,7 +63,6 @@ function detectPlan(userData: any): string {
     .filter(Boolean)
     .map((v: string) => v.toLowerCase().trim());
 
-  // Use the first candidate that matches a known plan key
   const matched = candidates.find((c) => c in PLAN_LIMITS);
   return matched || "free";
 }
@@ -90,7 +91,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user data
     const userRef = db.collection("users").doc(userId);
     const userSnap = await userRef.get();
     const userData = userSnap.exists ? userSnap.data() : {};
@@ -100,7 +100,6 @@ export async function POST(req: NextRequest) {
     const storageLimit = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS];
     const used = Number(userData?.storageUsed) || 0;
 
-    // Per-file size check
     if (fileSize > maxFileSize) {
       return NextResponse.json(
         {
@@ -110,7 +109,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Total storage quota check
     if (used + fileSize > storageLimit) {
       return NextResponse.json(
         {
@@ -123,7 +121,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate R2 presigned URL
     const key = `pulsevault/files/${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${fileName}`;
 
     const command = new PutObjectCommand({
