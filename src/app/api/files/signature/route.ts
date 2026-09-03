@@ -70,14 +70,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user plan + storage
+    // Get user data
     const userRef = db.collection("users").doc(userId);
     const userSnap = await userRef.get();
     const userData = userSnap.exists ? userSnap.data() : {};
 
+    // DEBUG: Log everything so we can see what's in Firestore
+    console.log("[DEBUG] userId:", userId);
+    console.log("[DEBUG] userData:", JSON.stringify(userData, null, 2));
+
+    // Check multiple possible field names where the plan might be stored
     const rawPlan =
-      (userData?.plan as string) || (userData?.planId as string) || "free";
-    const plan = rawPlan.toLowerCase();
+      (userData?.plan as string) ||
+      (userData?.planId as string) ||
+      (userData?.subscription?.plan as string) ||
+      (userData?.subscription?.planId as string) ||
+      (userData?.tier as string) ||
+      (userData?.billingPlan as string) ||
+      "free";
+
+    const plan = rawPlan.toLowerCase().trim();
+
+    console.log("[DEBUG] detected plan:", plan);
 
     const maxFileSize =
       PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.free;
@@ -85,17 +99,22 @@ export async function POST(req: NextRequest) {
       PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.free;
     const used = Number(userData?.storageUsed) || 0;
 
-    // 1. Per-file size check
+    // Per-file size check
     if (fileSize > maxFileSize) {
       return NextResponse.json(
         {
           error: `File too large for your ${plan} plan. Maximum: ${formatBytes(maxFileSize)}`,
+          debug: {
+            detectedPlan: plan,
+            rawPlanField: rawPlan,
+            availableFields: Object.keys(userData || {}),
+          },
         },
         { status: 413 },
       );
     }
 
-    // 2. Total storage quota check
+    // Total storage quota check
     if (used + fileSize > storageLimit) {
       return NextResponse.json(
         {
@@ -108,7 +127,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Generate R2 presigned URL
+    // Generate R2 presigned URL
     const key = `pulsevault/files/${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${fileName}`;
 
     const command = new PutObjectCommand({
