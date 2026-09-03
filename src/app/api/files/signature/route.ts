@@ -46,6 +46,26 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
+function detectPlan(userData: any): string {
+  // Collect all possible fields where the plan tier might live
+  const candidates = [
+    userData?.planName,
+    userData?.planId,
+    userData?.plan,
+    userData?.tier,
+    userData?.billingPlan,
+    userData?.subscription?.planName,
+    userData?.subscription?.planId,
+    userData?.subscription?.plan,
+  ]
+    .filter(Boolean)
+    .map((v: string) => v.toLowerCase().trim());
+
+  // Use the first candidate that matches a known plan key
+  const matched = candidates.find((c) => c in PLAN_LIMITS);
+  return matched || "free";
+}
+
 export async function POST(req: NextRequest) {
   const userId = await getUserFromToken(req);
   if (!userId) {
@@ -75,28 +95,9 @@ export async function POST(req: NextRequest) {
     const userSnap = await userRef.get();
     const userData = userSnap.exists ? userSnap.data() : {};
 
-    // DEBUG: Log everything so we can see what's in Firestore
-    console.log("[DEBUG] userId:", userId);
-    console.log("[DEBUG] userData:", JSON.stringify(userData, null, 2));
-
-    // Check multiple possible field names where the plan might be stored
-    const rawPlan =
-      (userData?.plan as string) ||
-      (userData?.planId as string) ||
-      (userData?.subscription?.plan as string) ||
-      (userData?.subscription?.planId as string) ||
-      (userData?.tier as string) ||
-      (userData?.billingPlan as string) ||
-      "free";
-
-    const plan = rawPlan.toLowerCase().trim();
-
-    console.log("[DEBUG] detected plan:", plan);
-
-    const maxFileSize =
-      PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.free;
-    const storageLimit =
-      PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.free;
+    const plan = detectPlan(userData);
+    const maxFileSize = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS];
+    const storageLimit = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS];
     const used = Number(userData?.storageUsed) || 0;
 
     // Per-file size check
@@ -104,11 +105,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: `File too large for your ${plan} plan. Maximum: ${formatBytes(maxFileSize)}`,
-          debug: {
-            detectedPlan: plan,
-            rawPlanField: rawPlan,
-            availableFields: Object.keys(userData || {}),
-          },
         },
         { status: 413 },
       );
